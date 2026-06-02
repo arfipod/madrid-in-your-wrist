@@ -40,6 +40,29 @@ wearos_playground/
 └── gradle.properties
 ```
 
+## Documentation map
+
+- [Engineering handbook](docs/engineering-handbook.md): end-to-end build,
+  testing, ADB Wi-Fi, runtime validation, CI, troubleshooting, and change
+  guidelines.
+- [Closed-loop workflow](docs/closed-loop-workflow.md): the shortest build,
+  install, launch, screenshot, and logcat loops.
+- [Pixel Watch 3 setup](docs/pixel-watch-3-setup.md): pairing and connecting
+  over ADB Wi-Fi.
+- [Docker Android SDK environment](docs/docker-android-sdk.md): reproducible
+  Docker build image details.
+- [Screenshot comparison](docs/screenshot-comparison.md): compare captured watch
+  PNGs and generate visual diffs when ImageMagick is available.
+- [Sensor logging experiments](docs/sensor-logging-experiments.md): activate and
+  verify accelerometer logging through `WearLoop`.
+- [Tiles baseline](docs/tiles-baseline.md): minimal Wear OS Tile provider and
+  verification notes.
+- [Complications baseline](docs/complications-baseline.md): minimal
+  `SHORT_TEXT` complication data source and picker notes.
+- [Codex task prompts](docs/codex-prompts.md): reusable prompts for future
+  agent-driven changes.
+- [Agent guide](AGENTS.md): quick operating rules for coding agents.
+
 ## What this initial app does
 
 The app intentionally stays simple. It validates the end-to-end loop before adding sensors, tiles, complications, Health Services, background workers, or advanced Compose UI.
@@ -52,6 +75,9 @@ Current app features:
 - Emits logs with the tag `WearLoop`.
 - Performs short haptic feedback on button press.
 - Uses Jetpack Compose for Wear OS for the baseline UI.
+- Can log accelerometer samples as a minimal sensor experiment.
+- Provides a minimal Wear OS Tile showing build status.
+- Provides a minimal `SHORT_TEXT` complication data source.
 
 ## Compose dependency choices
 
@@ -68,6 +94,18 @@ Current versions track the AndroidX stable channel: Compose BOM `2026.05.00`,
 Activity `1.13.0`, and Wear Compose `1.6.2`. The build uses Android Gradle
 Plugin `8.9.1` with Gradle `8.11.1` so these AndroidX artifacts satisfy their
 published metadata requirements.
+
+## Tile dependency choices
+
+The Tile baseline uses AndroidX Wear Tiles `1.6.0` with ProtoLayout `1.4.0`.
+The Tile UI uses ProtoLayout Material 3, not Compose, because tiles are rendered
+by the Wear OS tile renderer rather than by an Activity.
+
+## Complication dependency choices
+
+The complication baseline uses AndroidX Watch Face complication data source KTX
+`1.3.0`. The app only provides raw complication data; it does not implement a
+watch face or render complications itself.
 
 ## Quick start
 
@@ -163,6 +201,18 @@ likely to record the ambient, charging, or launcher screen instead of the app.
 ./scripts/logcat-watch.sh
 ```
 
+### 7. Compare screenshots
+
+```bash
+./scripts/compare-screenshot.sh BASELINE_PNG ACTUAL_PNG
+```
+
+Install ImageMagick for pixel metrics and visual diff images:
+
+```bash
+sudo apt install imagemagick
+```
+
 ## VS Code tasks
 
 Open the repo in VS Code and run:
@@ -180,6 +230,7 @@ Available tasks:
 - `adb: install watch`
 - `adb: launch watch`
 - `adb: screenshot watch`
+- `adb: compare screenshots`
 - `adb: logcat WearLoop`
 
 ## Recommended closed loop
@@ -224,11 +275,6 @@ The Android emulator is better managed from Android Studio on Windows. Keep Dock
 
 ## Suggested next milestones
 
-1. Stabilize Docker build and ADB Wi-Fi install.
-2. Add screenshot comparison support.
-3. Add Compose for Wear OS.
-4. Add tiles.
-5. Add complications.
-6. Add Health Services experiments.
-7. Add sensor logging experiments.
-8. Add Codex task prompts for repeatable app feature creation.
+1. Add Health Services experiments.
+2. Expand sensor logging experiments.
+3. Add repeatable feature prompts as the app grows.

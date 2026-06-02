@@ -16,6 +16,7 @@ echo "== Host tools =="
 check "Docker" docker
 check "ADB" adb
 check "Gradle local" gradle
+check "ImageMagick" magick
 
 echo
 echo "== Docker Compose =="

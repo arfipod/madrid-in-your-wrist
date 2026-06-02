@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -33,8 +34,14 @@ import androidx.wear.compose.material3.Text
 private const val LOG_TAG = "WearLoop"
 
 class MainActivity : ComponentActivity() {
+    private lateinit var sensorExperimentLogger: SensorExperimentLogger
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        sensorExperimentLogger = SensorExperimentLogger(this) { message ->
+            Log.i(LOG_TAG, message)
+        }
+
         Log.i(LOG_TAG, "MainActivity created. Build timestamp=${BuildConfig.BUILD_TIMESTAMP}")
 
         setContent {
@@ -43,9 +50,22 @@ class MainActivity : ComponentActivity() {
                 onCounterIncremented = { value ->
                     Log.i(LOG_TAG, "Counter incremented to $value")
                     vibrateShort()
-                }
+                },
+                onSensorLoggingChanged = { enabled ->
+                    if (enabled) {
+                        sensorExperimentLogger.start()
+                    } else {
+                        sensorExperimentLogger.stop()
+                        false
+                    }
+                },
             )
         }
+    }
+
+    override fun onDestroy() {
+        sensorExperimentLogger.stop()
+        super.onDestroy()
     }
 
     private fun vibrateShort() {
@@ -75,9 +95,11 @@ class MainActivity : ComponentActivity() {
 fun WearLoopApp(
     buildTimestamp: String,
     onCounterIncremented: (Int) -> Unit,
+    onSensorLoggingChanged: (Boolean) -> Boolean,
 ) {
     MaterialTheme {
         var counter by remember { mutableIntStateOf(0) }
+        var sensorLogging by remember { mutableStateOf(false) }
 
         Box(
             modifier = Modifier
@@ -122,6 +144,18 @@ fun WearLoopApp(
                     Text(
                         modifier = Modifier.fillMaxWidth(),
                         text = "TAP",
+                        textAlign = TextAlign.Center,
+                    )
+                }
+                Button(
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = {
+                        sensorLogging = onSensorLoggingChanged(!sensorLogging)
+                    },
+                ) {
+                    Text(
+                        modifier = Modifier.fillMaxWidth(),
+                        text = if (sensorLogging) "SENSORS ON" else "SENSORS OFF",
                         textAlign = TextAlign.Center,
                     )
                 }

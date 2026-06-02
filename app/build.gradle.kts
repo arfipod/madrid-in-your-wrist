@@ -62,6 +62,11 @@ dependencies {
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.ui:ui")
     implementation("androidx.wear.compose:compose-material3:1.6.2")
+    implementation("androidx.wear.tiles:tiles:1.6.0")
+    implementation("androidx.wear.protolayout:protolayout:1.4.0")
+    implementation("androidx.wear.protolayout:protolayout-material3:1.4.0")
+    implementation("androidx.wear.watchface:watchface-complications-data-source-ktx:1.3.0")
+    debugImplementation("androidx.wear.tiles:tiles-renderer:1.6.0")
 
     testImplementation("junit:junit:4.13.2")
 }

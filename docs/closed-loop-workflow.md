@@ -35,6 +35,14 @@ BUILD_MODE=local ./scripts/loop.sh
 ./scripts/logcat-watch.sh
 ```
 
+Compare screenshots after capture:
+
+```bash
+./scripts/compare-screenshot.sh BASELINE_PNG ACTUAL_PNG
+```
+
+Set `SCREENSHOT_COMPARE_MAX_DIFF_PIXELS` to allow small rendering differences.
+
 For local builds without Docker:
 
 ```bash
@@ -81,6 +89,7 @@ Runtime outputs should go under:
 ```text
 artifacts/
 ├── screenshots/
+├── screenshot-diffs/
 ├── bugreports/
 └── logs/
 ```
