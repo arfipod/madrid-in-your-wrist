@@ -1,0 +1,10 @@
+.gradle/
+.gradle-cache/
+build/
+app/build/
+local.properties
+artifacts/
+*.iml
+.idea/
+.DS_Store
+.vscode/*.log

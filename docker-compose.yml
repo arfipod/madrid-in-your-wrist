@@ -1,0 +1,18 @@
+services:
+  dev:
+    build:
+      context: .
+      args:
+        ANDROID_PLATFORM: android-36
+        ANDROID_BUILD_TOOLS: 35.0.0
+        GRADLE_VERSION: 8.10.2
+    image: wearos-playground-dev:latest
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+      - wearos-gradle-cache:/workspace/.gradle-cache
+    environment:
+      GRADLE_USER_HOME: /workspace/.gradle-cache
+
+volumes:
+  wearos-gradle-cache:

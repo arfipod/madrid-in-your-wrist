@@ -1,0 +1,54 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "doctor",
+      "type": "shell",
+      "command": "./scripts/doctor.sh",
+      "problemMatcher": []
+    },
+    {
+      "label": "docker: build image",
+      "type": "shell",
+      "command": "./scripts/docker-build-image.sh",
+      "problemMatcher": []
+    },
+    {
+      "label": "docker: build apk",
+      "type": "shell",
+      "command": "./scripts/docker-build-apk.sh",
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "adb: devices",
+      "type": "shell",
+      "command": "./scripts/adb-devices.sh",
+      "problemMatcher": []
+    },
+    {
+      "label": "adb: install watch",
+      "type": "shell",
+      "command": "./scripts/install-watch.sh",
+      "problemMatcher": []
+    },
+    {
+      "label": "adb: launch watch",
+      "type": "shell",
+      "command": "./scripts/launch-watch.sh",
+      "problemMatcher": []
+    },
+    {
+      "label": "adb: screenshot watch",
+      "type": "shell",
+      "command": "./scripts/screenshot-watch.sh",
+      "problemMatcher": []
+    },
+    {
+      "label": "adb: logcat WearLoop",
+      "type": "shell",
+      "command": "./scripts/logcat-watch.sh",
+      "problemMatcher": []
+    }
+  ]
+}

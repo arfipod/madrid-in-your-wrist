@@ -1,0 +1,7 @@
+{
+  "recommendations": [
+    "fwcd.kotlin",
+    "redhat.vscode-xml",
+    "ms-azuretools.vscode-docker"
+  ]
+}
