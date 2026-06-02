@@ -1,3 +1,5 @@
 #!/usr/bin/env bash
 set -euo pipefail
-adb devices -l
+source "$(dirname "$0")/common.sh"
+require_adb
+"$ADB" devices -l

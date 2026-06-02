@@ -1,14 +1,17 @@
+import java.time.Instant
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.compose")
 }
 
 android {
-    namespace = "com.angelrubiodev.wearosplayground"
+    namespace = "com.arfipod.wearosplayground"
     compileSdk = providers.gradleProperty("android.compileSdk").get().toInt()
 
     defaultConfig {
-        applicationId = "com.angelrubiodev.wearosplayground"
+        applicationId = "com.arfipod.wearosplayground"
         minSdk = providers.gradleProperty("android.minSdk").get().toInt()
         targetSdk = providers.gradleProperty("android.targetSdk").get().toInt()
         versionCode = 1
@@ -17,7 +20,7 @@ android {
         buildConfigField(
             "String",
             "BUILD_TIMESTAMP",
-            "\"${java.time.Instant.now()}\""
+            "\"${Instant.now()}\""
         )
     }
 
@@ -47,5 +50,18 @@ android {
 
     buildFeatures {
         buildConfig = true
+        compose = true
     }
+}
+
+dependencies {
+    val composeBom = platform("androidx.compose:compose-bom:2026.05.00")
+
+    implementation(composeBom)
+    implementation("androidx.activity:activity-compose:1.13.0")
+    implementation("androidx.compose.foundation:foundation")
+    implementation("androidx.compose.ui:ui")
+    implementation("androidx.wear.compose:compose-material3:1.6.2")
+
+    testImplementation("junit:junit:4.13.2")
 }

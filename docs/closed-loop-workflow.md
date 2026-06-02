@@ -18,6 +18,13 @@ edit code
 ./scripts/loop.sh
 ```
 
+The default loop builds with Docker. If Docker is not available in the current
+shell, use the local Gradle wrapper:
+
+```bash
+BUILD_MODE=local ./scripts/loop.sh
+```
+
 ## Manual loop
 
 ```bash
@@ -26,6 +33,35 @@ edit code
 ./scripts/launch-watch.sh
 ./scripts/screenshot-watch.sh
 ./scripts/logcat-watch.sh
+```
+
+For local builds without Docker:
+
+```bash
+./scripts/gradle-build-local.sh
+```
+
+For a specific connected watch or emulator:
+
+```bash
+ANDROID_SERIAL=WATCH_IP:ADB_PORT ./scripts/loop.sh
+```
+
+The install, launch, screenshot, logcat, and bugreport scripts now check that
+the selected ADB target is in the `device` state before running.
+
+The launch and screenshot steps also send `KEYCODE_WAKEUP` before interacting
+with the watch. Override the screenshot wait if the display needs more time:
+
+```bash
+SCREENSHOT_WAKE_DELAY_SECONDS=2 ./scripts/screenshot-watch.sh
+```
+
+For unit test verification:
+
+```bash
+source ./scripts/common.sh
+./gradlew --no-daemon :app:testDebugUnitTest
 ```
 
 ## What Codex should modify first

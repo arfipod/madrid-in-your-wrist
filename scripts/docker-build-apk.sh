@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
-docker compose run --rm dev gradle --no-daemon :app:assembleDebug
+source ./scripts/common.sh
+compose="$(docker_compose_cmd)"
+$compose run --rm dev ./gradlew --no-daemon :app:assembleDebug

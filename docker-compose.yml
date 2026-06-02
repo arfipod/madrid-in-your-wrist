@@ -5,7 +5,7 @@ services:
       args:
         ANDROID_PLATFORM: android-36
         ANDROID_BUILD_TOOLS: 35.0.0
-        GRADLE_VERSION: 8.10.2
+        GRADLE_VERSION: 8.11.1
     image: wearos-playground-dev:latest
     working_dir: /workspace
     volumes:

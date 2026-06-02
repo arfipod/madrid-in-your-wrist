@@ -1,8 +1,6 @@
-# Codex prompts
+# Codex task prompts
 
-## Prompt 1 — Stabilize baseline
-
-Reasoning effort: medium
+## Stabilize closed-loop baseline
 
 ```text
 You are working in the wearos_playground repository.
@@ -28,9 +26,7 @@ Expected output:
 - Clear commit message: chore: stabilize wear os closed loop baseline
 ```
 
-## Prompt 2 — Add Compose for Wear OS
-
-Reasoning effort: high
+## Add Compose Wear baseline UI
 
 ```text
 You are working in the wearos_playground repository.
@@ -54,26 +50,4 @@ Expected output:
 - APK builds in Docker.
 - App launches on Pixel Watch 3.
 - Commit message: feat: add compose wear baseline ui
-```
-
-## Prompt 3 — Add screenshot verification
-
-Reasoning effort: medium-high
-
-```text
-You are working in the wearos_playground repository.
-
-Goal:
-Add a lightweight screenshot verification workflow for the Wear OS app.
-
-Tasks:
-1. Extend screenshot-watch.sh to save metadata next to the PNG.
-2. Add a script that captures before/after screenshots with timestamped names.
-3. Add a docs section explaining how screenshots are used in the development loop.
-4. Do not add heavyweight visual regression tooling yet.
-
-Expected output:
-- screenshots saved under artifacts/screenshots
-- metadata JSON per screenshot
-- Commit message: feat: add screenshot capture metadata
 ```

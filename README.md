@@ -51,11 +51,31 @@ Current app features:
 - Has a counter button.
 - Emits logs with the tag `WearLoop`.
 - Performs short haptic feedback on button press.
-- Uses plain Android UI instead of Compose to minimize dependency friction in the first closed-loop milestone.
+- Uses Jetpack Compose for Wear OS for the baseline UI.
 
-Compose for Wear OS can be added once this baseline loop is stable.
+## Compose dependency choices
+
+The app uses a deliberately small Compose surface:
+
+- `androidx.activity:activity-compose` supplies `setContent` for the Activity.
+- `androidx.compose:compose-bom` pins compatible stable Compose UI/runtime artifacts.
+- `androidx.wear.compose:compose-material3` supplies Wear-specific Material 3 components.
+
+Navigation, previews, animation add-ons, and other larger Compose integrations are
+left out until the closed loop needs them.
+
+Current versions track the AndroidX stable channel: Compose BOM `2026.05.00`,
+Activity `1.13.0`, and Wear Compose `1.6.2`. The build uses Android Gradle
+Plugin `8.9.1` with Gradle `8.11.1` so these AndroidX artifacts satisfy their
+published metadata requirements.
 
 ## Quick start
+
+Check the host environment first:
+
+```bash
+./scripts/doctor.sh
+```
 
 ### 1. Build the Docker image
 
@@ -73,6 +93,22 @@ APK output:
 
 ```text
 app/build/outputs/apk/debug/app-debug.apk
+```
+
+For a local non-Docker build, use the Gradle wrapper:
+
+```bash
+./scripts/gradle-build-local.sh
+```
+
+This is useful in WSL while Docker Desktop or the Compose plugin is not
+available inside the distro.
+
+Run the JVM unit tests with:
+
+```bash
+source ./scripts/common.sh
+./gradlew --no-daemon :app:testDebugUnitTest
 ```
 
 ### 3. Connect the Pixel Watch 3 over ADB Wi-Fi
@@ -118,6 +154,9 @@ Screenshots are saved under:
 artifacts/screenshots/
 ```
 
+The launch and screenshot scripts wake the watch first so captures are less
+likely to record the ambient, charging, or launcher screen instead of the app.
+
 ### 6. Watch logs
 
 ```bash
@@ -157,6 +196,25 @@ Or:
 ```bash
 ./scripts/loop.sh
 ```
+
+If more than one device or emulator is connected, set `ANDROID_SERIAL` before
+running install, launch, screenshot, logcat, or loop scripts:
+
+```bash
+ANDROID_SERIAL=WATCH_IP:ADB_PORT ./scripts/install-watch.sh
+```
+
+When Docker is unavailable locally, the same closed loop can use the Gradle
+wrapper:
+
+```bash
+BUILD_MODE=local ANDROID_SERIAL=WATCH_IP:ADB_PORT ./scripts/loop.sh
+```
+
+## CI
+
+GitHub Actions runs the debug unit tests and assembles the debug APK on pushes
+and pull requests to `main`.
 
 ## Important WSL note
 

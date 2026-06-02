@@ -19,10 +19,12 @@ check "Gradle local" gradle
 
 echo
 echo "== Docker Compose =="
-if docker compose version >/dev/null 2>&1; then
+if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
   docker compose version
+elif command -v docker-compose >/dev/null 2>&1; then
+  docker-compose version
 else
-  echo "[MISSING] docker compose plugin"
+  echo "[MISSING] Docker Compose"
 fi
 
 echo
@@ -38,8 +40,8 @@ fi
 
 echo
 echo "== ADB devices =="
-if command -v adb >/dev/null 2>&1; then
-  adb devices -l || true
+if command -v "$ADB" >/dev/null 2>&1; then
+  "$ADB" devices -l || true
 else
   echo "ADB not installed in this shell."
 fi

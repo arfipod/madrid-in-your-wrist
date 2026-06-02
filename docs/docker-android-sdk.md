@@ -8,7 +8,7 @@ The Docker image contains:
 - Android SDK platform tools
 - Android platform API 36
 - Android build tools 35.0.0
-- Gradle 8.10.2
+- Gradle 8.11.1
 
 ## Build image
 
@@ -20,6 +20,15 @@ The Docker image contains:
 
 ```bash
 ./scripts/docker-build-apk.sh
+```
+
+The Docker scripts use `docker compose` when the Compose plugin is installed,
+and fall back to `docker-compose` when only the legacy command is present.
+
+If Docker is not available in the current WSL shell, run:
+
+```bash
+./scripts/gradle-build-local.sh
 ```
 
 ## Why the emulator is not inside Docker

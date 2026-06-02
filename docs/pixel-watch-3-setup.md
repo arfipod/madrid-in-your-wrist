@@ -50,6 +50,13 @@ Expected result:
 WATCH_IP:ADB_PORT device product:... model:Pixel_Watch_3 ...
 ```
 
+When more than one device or emulator is visible, select the watch explicitly:
+
+```bash
+ANDROID_SERIAL=WATCH_IP:ADB_PORT ./scripts/install-watch.sh
+ANDROID_SERIAL=WATCH_IP:ADB_PORT ./scripts/launch-watch.sh
+```
+
 ## 5. Common issues
 
 ### `offline`
