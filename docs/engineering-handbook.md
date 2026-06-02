@@ -344,6 +344,39 @@ SensorSampleFormatter.kt       Pure formatter for log output
 SensorSampleFormatterTest.kt   JVM tests for stable formatting
 ```
 
+## Examples gallery
+
+The app includes a compact examples gallery under:
+
+```text
+app/src/main/java/com/arfipod/wearosplayground/examples/
+```
+
+Examples:
+
+```text
+flappy  Compose Canvas Flappy Bird-style game
+api     HttpURLConnection GET to https://api.github.com/zen
+metro   NAP/GTFS scheduled Metro de Madrid departure
+emt     EMT E3 realtime arrival at Felipe II toward Valderrivas
+3d      Software-projected rotating cube rendered in Compose Canvas
+audio   Platform ToneGenerator tone playback
+video   Platform VideoView streaming a small HTTPS MP4
+```
+
+Launch a specific example directly from ADB with:
+
+```bash
+source ./scripts/common.sh
+ANDROID_SERIAL=WATCH_IP:ADB_PORT adb_cmd shell am start \
+  -n "$APP_ID/$MAIN_ACTIVITY" \
+  --es example flappy
+```
+
+See `docs/examples.md` for the full route list and runtime validation loop.
+See `docs/metro-madrid-nap.md` for NAP API key configuration.
+See `docs/emt-madrid-openapi.md` for EMT MobilityLabs credential configuration.
+
 ## CI process
 
 GitHub Actions runs on pushes and pull requests to `main`, plus manual

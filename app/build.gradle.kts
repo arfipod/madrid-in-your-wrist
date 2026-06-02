@@ -16,11 +16,38 @@ android {
         targetSdk = providers.gradleProperty("android.targetSdk").get().toInt()
         versionCode = 1
         versionName = "0.1.0"
+        val napApiKey = providers.gradleProperty("nap.apiKey")
+            .orElse(providers.environmentVariable("NAP_API_KEY"))
+            .orElse("")
+            .get()
+        val emtClientId = providers.gradleProperty("emt.clientId")
+            .orElse(providers.environmentVariable("EMT_CLIENT_ID"))
+            .orElse("")
+            .get()
+        val emtPassKey = providers.gradleProperty("emt.passKey")
+            .orElse(providers.environmentVariable("EMT_PASS_KEY"))
+            .orElse("")
+            .get()
 
         buildConfigField(
             "String",
             "BUILD_TIMESTAMP",
             "\"${Instant.now()}\""
+        )
+        buildConfigField(
+            "String",
+            "NAP_API_KEY",
+            "\"${napApiKey.replace("\\", "\\\\").replace("\"", "\\\"")}\""
+        )
+        buildConfigField(
+            "String",
+            "EMT_CLIENT_ID",
+            "\"${emtClientId.replace("\\", "\\\\").replace("\"", "\\\"")}\""
+        )
+        buildConfigField(
+            "String",
+            "EMT_PASS_KEY",
+            "\"${emtPassKey.replace("\\", "\\\\").replace("\"", "\\\"")}\""
         )
     }
 

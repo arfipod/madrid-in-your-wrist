@@ -9,12 +9,14 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -30,8 +32,11 @@ import androidx.compose.ui.unit.sp
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
+import com.arfipod.wearosplayground.examples.ExampleKind
+import com.arfipod.wearosplayground.examples.ExampleSurface
 
 private const val LOG_TAG = "WearLoop"
+private const val EXTRA_EXAMPLE = "example"
 
 class MainActivity : ComponentActivity() {
     private lateinit var sensorExperimentLogger: SensorExperimentLogger
@@ -47,6 +52,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             WearLoopApp(
                 buildTimestamp = BuildConfig.BUILD_TIMESTAMP,
+                initialExample = ExampleKind.fromRoute(intent?.getStringExtra(EXTRA_EXAMPLE)),
                 onCounterIncremented = { value ->
                     Log.i(LOG_TAG, "Counter incremented to $value")
                     vibrateShort()
@@ -58,6 +64,12 @@ class MainActivity : ComponentActivity() {
                         sensorExperimentLogger.stop()
                         false
                     }
+                },
+                onExampleOpened = { example ->
+                    Log.i(LOG_TAG, "Example opened: ${example.route}")
+                },
+                onExampleEvent = { message ->
+                    Log.i(LOG_TAG, message)
                 },
             )
         }
@@ -94,12 +106,26 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun WearLoopApp(
     buildTimestamp: String,
+    initialExample: ExampleKind? = null,
     onCounterIncremented: (Int) -> Unit,
     onSensorLoggingChanged: (Boolean) -> Boolean,
+    onExampleOpened: (ExampleKind) -> Unit = {},
+    onExampleEvent: (String) -> Unit = {},
 ) {
     MaterialTheme {
         var counter by remember { mutableIntStateOf(0) }
         var sensorLogging by remember { mutableStateOf(false) }
+        var selectedExample by remember { mutableStateOf(initialExample) }
+
+        val currentExample = selectedExample
+        if (currentExample != null) {
+            ExampleSurface(
+                example = currentExample,
+                onBack = { selectedExample = null },
+                onEvent = onExampleEvent,
+            )
+            return@MaterialTheme
+        }
 
         Box(
             modifier = Modifier
@@ -109,7 +135,9 @@ fun WearLoopApp(
             contentAlignment = Alignment.Center,
         ) {
             Column(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
@@ -158,6 +186,27 @@ fun WearLoopApp(
                         text = if (sensorLogging) "SENSORS ON" else "SENSORS OFF",
                         textAlign = TextAlign.Center,
                     )
+                }
+                Text(
+                    text = "Examples",
+                    color = Color.LightGray,
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                ExampleKind.entries.forEach { example ->
+                    Button(
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = {
+                            selectedExample = example
+                            onExampleOpened(example)
+                        },
+                    ) {
+                        Text(
+                            modifier = Modifier.fillMaxWidth(),
+                            text = example.buttonLabel,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
                 }
             }
         }

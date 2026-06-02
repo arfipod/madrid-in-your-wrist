@@ -59,6 +59,12 @@ wearos_playground/
   verification notes.
 - [Complications baseline](docs/complications-baseline.md): minimal
   `SHORT_TEXT` complication data source and picker notes.
+- [Examples gallery](docs/examples.md): Flappy Bird, API output, 3D, audio,
+  and video examples plus direct ADB launch commands.
+- [Metro Madrid NAP example](docs/metro-madrid-nap.md): NAP API key setup and
+  GTFS schedule calculation notes.
+- [EMT Madrid OpenAPI example](docs/emt-madrid-openapi.md): MobilityLabs
+  credential setup and E3 arrival notes.
 - [Codex task prompts](docs/codex-prompts.md): reusable prompts for future
   agent-driven changes.
 - [Agent guide](AGENTS.md): quick operating rules for coding agents.
@@ -78,6 +84,12 @@ Current app features:
 - Can log accelerometer samples as a minimal sensor experiment.
 - Provides a minimal Wear OS Tile showing build status.
 - Provides a minimal `SHORT_TEXT` complication data source.
+- Includes an examples gallery for Flappy Bird, API output, 3D rendering, audio,
+  and video playback.
+- Includes a Metro Madrid NAP/GTFS example that can show scheduled departures
+  when built with a valid NAP API key.
+- Includes an EMT Madrid OpenAPI example for the next E3 bus at Felipe II toward
+  Valderrivas when built with valid MobilityLabs credentials.
 
 ## Compose dependency choices
 
