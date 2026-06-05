@@ -8,11 +8,27 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 object EmtMadridTarget {
-    const val STOP_ID = "755"
+    const val STOP_ID = "1064"
     const val LINE_ID = "E3"
     const val DESTINATION = "VALDERRIVAS"
-    const val LABEL = "E3 Felipe II -> Valderrivas"
+    const val LABEL = "E3 stop 1064 -> Valderrivas"
     const val API_BASE_URL = "https://openapi.emtmadrid.es"
+}
+
+data class EmtMadridCredentials(
+    val clientId: String,
+    val passKey: String,
+    val email: String,
+    val password: String,
+) {
+    val hasProtectedLogin: Boolean
+        get() = clientId.isNotBlank() && passKey.isNotBlank()
+
+    val hasBasicLogin: Boolean
+        get() = email.isNotBlank() && password.isNotBlank()
+
+    val hasAnyLogin: Boolean
+        get() = hasProtectedLogin || hasBasicLogin
 }
 
 data class EmtBusArrival(
@@ -50,7 +66,7 @@ object EmtMadridJson {
         lineId: String = EmtMadridTarget.LINE_ID,
         destination: String = EmtMadridTarget.DESTINATION,
     ): List<EmtBusArrival> {
-        return Regex("""\{[^{}]*(?:"lineId"|"lineArrive")[^{}]*}""")
+        return Regex("""\{[^{}]*(?:"lineId"|"lineArrive"|"line")[^{}]*}""")
             .findAll(rawBody)
             .mapNotNull { match -> parseArrivalObject(match.value) }
             .filter { arrival ->
@@ -102,25 +118,62 @@ object EmtMadridJson {
 class EmtMadridClient(
     private val clientId: String,
     private val passKey: String,
+    private val email: String,
+    private val password: String,
     private val baseUrl: String = EmtMadridTarget.API_BASE_URL,
 ) {
-    suspend fun fetchNextE3Arrival(): EmtBusArrival? = withContext(Dispatchers.IO) {
-        require(clientId.isNotBlank()) { "EMT client id is blank." }
-        require(passKey.isNotBlank()) { "EMT pass key is blank." }
+    constructor(
+        credentials: EmtMadridCredentials,
+        baseUrl: String = EmtMadridTarget.API_BASE_URL,
+    ) : this(
+        clientId = credentials.clientId,
+        passKey = credentials.passKey,
+        email = credentials.email,
+        password = credentials.password,
+        baseUrl = baseUrl,
+    )
 
-        val token = login()
+    suspend fun fetchNextE3Arrival(): EmtBusArrival? = withContext(Dispatchers.IO) {
+        val credentials = EmtMadridCredentials(
+            clientId = clientId,
+            passKey = passKey,
+            email = email,
+            password = password,
+        )
+        require(credentials.hasAnyLogin) { "EMT credentials are blank." }
+
+        val token = login(credentials)
         val arrivals = requestArrivals(token)
         EmtMadridJson.parseArrivals(arrivals).firstOrNull()
     }
 
-    private fun login(): String {
+    private fun login(credentials: EmtMadridCredentials): String {
+        val protectedFailure = if (credentials.hasProtectedLogin) {
+            runCatching { loginWithHeaders("X-ClientId" to clientId, "passKey" to passKey) }
+                .fold(
+                    onSuccess = { return it },
+                    onFailure = { it },
+                )
+        } else {
+            null
+        }
+
+        if (credentials.hasBasicLogin) {
+            return loginWithHeaders("email" to email, "password" to password)
+        }
+
+        if (protectedFailure != null) {
+            throw protectedFailure
+        }
+
+        throw IOException("EMT credentials are incomplete.")
+    }
+
+    private fun loginWithHeaders(vararg headers: Pair<String, String>): String {
         val body = request(
             method = "GET",
-            path = "/v3/mobilitylabs/user/login/",
-            headers = mapOf(
-                "X-ClientId" to clientId,
-                "passKey" to passKey,
-            ),
+            path = "/v1/mobilitylabs/user/login/",
+            headers = headers.toMap(),
             body = null,
         )
         return EmtMadridJson.findAccessToken(body)
@@ -129,7 +182,7 @@ class EmtMadridClient(
 
     private fun requestArrivals(accessToken: String): String = request(
         method = "POST",
-        path = "/v2/transport/busemtmad/stops/${EmtMadridTarget.STOP_ID}/arrives/${EmtMadridTarget.LINE_ID}/",
+        path = "/v2/transport/busemtmad/stops/${EmtMadridTarget.STOP_ID}/arrives/",
         headers = mapOf(
             "accessToken" to accessToken,
             "Accept" to "application/json",

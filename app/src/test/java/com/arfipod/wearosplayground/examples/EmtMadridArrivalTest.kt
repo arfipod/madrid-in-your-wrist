@@ -48,6 +48,44 @@ class EmtMadridArrivalTest {
     }
 
     @Test
+    fun currentV2ArriveShapeIsParsed() {
+        val arrivals = EmtMadridJson.parseArrivals(
+            """
+                {
+                  "data": [
+                    {
+                      "Arrive": [
+                        {
+                          "line": "E3",
+                          "stop": "1064",
+                          "destination": "VALDERRIVAS",
+                          "estimateArrive": 225,
+                          "DistanceBus": 1696
+                        }
+                      ]
+                    }
+                  ]
+                }
+            """.trimIndent()
+        )
+
+        assertEquals("4 min\nE3 -> VALDERRIVAS\n1696 m", arrivals.first().compactLabel())
+    }
+
+    @Test
+    fun basicLoginCredentialsAreAccepted() {
+        val credentials = EmtMadridCredentials(
+            clientId = "",
+            passKey = "",
+            email = "user@example.com",
+            password = "secret",
+        )
+
+        assertEquals(true, credentials.hasBasicLogin)
+        assertEquals(true, credentials.hasAnyLogin)
+    }
+
+    @Test
     fun oldArrivesShapeIsAlsoParsed() {
         val arrivals = EmtMadridJson.parseArrivals(
             """

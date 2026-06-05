@@ -28,6 +28,14 @@ android {
             .orElse(providers.environmentVariable("EMT_PASS_KEY"))
             .orElse("")
             .get()
+        val emtEmail = providers.gradleProperty("emt.email")
+            .orElse(providers.environmentVariable("EMT_EMAIL"))
+            .orElse("")
+            .get()
+        val emtPassword = providers.gradleProperty("emt.password")
+            .orElse(providers.environmentVariable("EMT_PASSWORD"))
+            .orElse("")
+            .get()
 
         buildConfigField(
             "String",
@@ -48,6 +56,16 @@ android {
             "String",
             "EMT_PASS_KEY",
             "\"${emtPassKey.replace("\\", "\\\\").replace("\"", "\\\"")}\""
+        )
+        buildConfigField(
+            "String",
+            "EMT_EMAIL",
+            "\"${emtEmail.replace("\\", "\\\\").replace("\"", "\\\"")}\""
+        )
+        buildConfigField(
+            "String",
+            "EMT_PASSWORD",
+            "\"${emtPassword.replace("\\", "\\\\").replace("\"", "\\\"")}\""
         )
     }
 

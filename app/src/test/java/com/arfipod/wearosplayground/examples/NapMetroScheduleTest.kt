@@ -38,6 +38,12 @@ class NapMetroScheduleTest {
         val schedule = MetroGtfsSchedule()
         val departure = schedule.nextDeparture(
             gtfsZipBytes = metroFixtureZip(),
+            target = MetroScheduleTarget(
+                label = "Goya / Felipe II",
+                stopNameQuery = "Goya",
+                routeNameQuery = "2",
+                destinationQuery = "Las Rosas",
+            ),
             now = LocalDateTime.of(2026, 6, 1, 10, 0, 0),
         )
 
@@ -46,6 +52,21 @@ class NapMetroScheduleTest {
         assertEquals("L2 Linea 2", departure.routeName)
         assertEquals("Las Rosas", departure.destination)
         assertEquals(5, departure.minutesUntil)
+    }
+
+    @Test
+    fun nextDepartureUsesFrequencyGtfsForDefaultArguellesTarget() {
+        val schedule = MetroGtfsSchedule()
+        val departure = schedule.nextDeparture(
+            gtfsZipBytes = metroFrequencyFixtureZip(),
+            now = LocalDateTime.of(2026, 6, 1, 10, 1, 0),
+        )
+
+        assertNotNull(departure)
+        assertEquals("ARGÜELLES", departure!!.stopName)
+        assertEquals("4 Argüelles-Pinar de Chamartín", departure.routeName)
+        assertEquals("Pinar de Chamartín", departure.destination)
+        assertEquals(2, departure.minutesUntil)
     }
 
     @Test
@@ -91,6 +112,63 @@ class NapMetroScheduleTest {
                     trip_id,arrival_time,departure_time,stop_id,stop_sequence
                     trip-a,09:55:00,09:55:00,sol,1
                     trip-a,10:05:00,10:05:00,goya,2
+                """.trimIndent(),
+            )
+            zip.putTextEntry(
+                "calendar.txt",
+                """
+                    service_id,monday,tuesday,wednesday,thursday,friday,saturday,sunday,start_date,end_date
+                    weekday,1,1,1,1,1,0,0,20260101,20261231
+                """.trimIndent(),
+            )
+            zip.putTextEntry(
+                "calendar_dates.txt",
+                """
+                    service_id,date,exception_type
+                """.trimIndent(),
+            )
+        }
+        return output.toByteArray()
+    }
+
+    private fun metroFrequencyFixtureZip(): ByteArray {
+        val output = ByteArrayOutputStream()
+        ZipOutputStream(output).use { zip ->
+            zip.putTextEntry(
+                "stops.txt",
+                """
+                    stop_id,stop_name
+                    arguelles,ARGÜELLES
+                    san_bernardo,SAN BERNARDO
+                """.trimIndent(),
+            )
+            zip.putTextEntry(
+                "routes.txt",
+                """
+                    ﻿route_id,route_short_name,route_long_name
+                    l4,4,Argüelles-Pinar de Chamartín
+                """.trimIndent(),
+            )
+            zip.putTextEntry(
+                "trips.txt",
+                """
+                    route_id,service_id,trip_id,trip_headsign
+                    l4,weekday,trip-l4,Pinar de Chamartín
+                """.trimIndent(),
+            )
+            zip.putTextEntry(
+                "stop_times.txt",
+                """
+                    trip_id,arrival_time,departure_time,stop_id,stop_sequence
+                    trip-l4,00:02:10,00:02:10,arguelles,1
+                    trip-l4,00:04:20,00:04:20,san_bernardo,2
+                """.trimIndent(),
+            )
+            zip.putTextEntry(
+                "frequencies.txt",
+                """
+                    trip_id,start_time,end_time,headway_secs
+                    trip-l4,10:00:00,11:00:00,300
                 """.trimIndent(),
             )
             zip.putTextEntry(

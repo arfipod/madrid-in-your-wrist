@@ -56,18 +56,19 @@ ANDROID_SERIAL=WATCH_IP:ADB_PORT adb_cmd shell am start \
   --es example metro
 ```
 
-The example targets `Goya / Felipe II`, using `Goya` as the Metro stop name in
-GTFS because Plaza de Felipe II is served by the Goya Metro station.
+The example targets Line 4 at `Argüelles`, showing scheduled departures toward
+`Pinar de Chamartín`.
 
 At runtime the app:
 
 ```text
-1. Requests a NAP download link for dataset/file 933.
-2. Falls back to reading dataset detail JSON and extracting a GTFS file id.
-3. Downloads the GTFS zip.
-4. Parses stops.txt, routes.txt, trips.txt, stop_times.txt, calendar.txt, and
-   calendar_dates.txt.
-5. Shows the next scheduled Metro departure for the target stop.
+1. Reads NAP API v2 dataset `933`.
+2. Extracts the GTFS-ZIP file id from the dataset detail response.
+3. Requests a temporary v2 download link for that file id.
+4. Downloads the GTFS zip.
+5. Parses stops.txt, routes.txt, trips.txt, stop_times.txt, frequencies.txt,
+   calendar.txt, and calendar_dates.txt.
+6. Shows the next scheduled Metro departure for the target stop.
 ```
 
 NAP provides scheduled GTFS data. The example does not claim realtime arrivals.

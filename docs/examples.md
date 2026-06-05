@@ -61,7 +61,7 @@ watch. The app manifest includes `android.permission.INTERNET` for this example.
 
 `MetroMadridExample.kt` uses the NAP API key exposed as `BuildConfig.NAP_API_KEY`
 to download the Metro de Madrid GTFS-ZIP dataset and calculate the next scheduled
-departure for `Goya / Felipe II`.
+Line 4 departure from `Argüelles` toward `Pinar de Chamartín`.
 
 Configure the key at build time:
 
@@ -91,8 +91,9 @@ notes.
 ### EMT E3
 
 `EmtMadridExample.kt` uses MobilityLabs credentials exposed as
-`BuildConfig.EMT_CLIENT_ID` and `BuildConfig.EMT_PASS_KEY` to show the next E3
-arrival from `Felipe II` stop `755` toward `Valderrivas`.
+`BuildConfig.EMT_CLIENT_ID`/`BuildConfig.EMT_PASS_KEY` or
+`BuildConfig.EMT_EMAIL`/`BuildConfig.EMT_PASSWORD` to show the next E3 arrival
+from EMT stop `1064` toward `Valderrivas`.
 
 Configure credentials at build time:
 
@@ -104,9 +105,25 @@ EMT_CLIENT_ID=YOUR_CLIENT_ID EMT_PASS_KEY=YOUR_PASS_KEY \
 Or:
 
 ```bash
+EMT_EMAIL=YOUR_EMAIL EMT_PASSWORD=YOUR_PASSWORD \
+  ./gradlew --no-daemon :app:assembleDebug
+```
+
+Or:
+
+```bash
 ./gradlew --no-daemon \
   -Pemt.clientId=YOUR_CLIENT_ID \
   -Pemt.passKey=YOUR_PASS_KEY \
+  :app:assembleDebug
+```
+
+Or:
+
+```bash
+./gradlew --no-daemon \
+  -Pemt.email=YOUR_EMAIL \
+  -Pemt.password=YOUR_PASSWORD \
   :app:assembleDebug
 ```
 

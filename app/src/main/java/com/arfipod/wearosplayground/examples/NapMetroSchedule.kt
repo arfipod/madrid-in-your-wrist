@@ -21,10 +21,10 @@ object NapMetroDataset {
 }
 
 data class MetroScheduleTarget(
-    val label: String = "Goya / Felipe II",
-    val stopNameQuery: String = "Goya",
-    val routeNameQuery: String? = null,
-    val destinationQuery: String? = null,
+    val label: String = "L4 Argüelles -> Pinar de Chamartín",
+    val stopNameQuery: String = "Argüelles",
+    val routeNameQuery: String? = "4",
+    val destinationQuery: String? = "Pinar de Chamartín",
 )
 
 data class MetroDeparture(
@@ -50,7 +50,7 @@ object NapMetroApiJson {
         ?.trimEnd('}', ']')
 
     fun findFileId(rawBody: String): Int? {
-        val gtfsObject = Regex("""(?is)\{[^{}]*(?:GTFS|gtfs)[^{}]*}""")
+        val gtfsObject = Regex("""(?is)\{[^{}]*(?:GTFS|gtfs)[^{}]*\}""")
             .findAll(rawBody)
             .map { it.value }
             .firstOrNull()
@@ -75,20 +75,14 @@ class NapMetroClient(
     suspend fun fetchMetroGtfsZip(): ByteArray = withContext(Dispatchers.IO) {
         require(apiKey.isNotBlank()) { "NAP API key is blank." }
         val downloadUrl = resolveDownloadUrl()
-        requestBytes(downloadUrl, accept = "application/octet-stream", includeApiKey = true)
+        requestBytes(downloadUrl, accept = "application/octet-stream", includeApiKey = false)
     }
 
     private fun resolveDownloadUrl(): String {
-        val directLink = runCatching {
-            val body = apiGetText("/api/Fichero/downloadLink/$datasetId")
-            NapMetroApiJson.findDownloadUrl(body)
-        }.getOrNull()
-        if (directLink != null) return directLink
-
-        val detail = apiGetText("/api/Fichero/$datasetId")
+        val detail = apiGetText("/api/v2/conjunto-dato/$datasetId")
         val fileId = NapMetroApiJson.findFileId(detail)
             ?: throw IOException("NAP dataset $datasetId did not expose a GTFS file id.")
-        val linkBody = apiGetText("/api/Fichero/downloadLink/$fileId")
+        val linkBody = apiGetText("/api/v2/fichero/$fileId/descarga")
         return NapMetroApiJson.findDownloadUrl(linkBody)
             ?: throw IOException("NAP file $fileId did not return a download URL.")
     }
@@ -168,7 +162,8 @@ object GtfsCsv {
             .toList()
         if (lines.isEmpty()) return emptyList()
 
-        val header = parseLine(lines.first())
+        val header = parseLine(lines.first().removePrefix("\uFEFF"))
+            .map { it.removePrefix("\uFEFF") }
         return lines.drop(1).map { line ->
             val values = parseLine(line)
             header.mapIndexed { index, name ->
@@ -196,6 +191,7 @@ private data class GtfsFeed(
     val routesById: Map<String, Map<String, String>>,
     val tripsById: Map<String, Map<String, String>>,
     val stopTimes: List<Map<String, String>>,
+    val frequenciesByTripId: Map<String, List<Map<String, String>>>,
     val calendar: List<Map<String, String>>,
     val calendarDates: List<Map<String, String>>,
 ) {
@@ -253,21 +249,92 @@ private data class GtfsFeed(
                 return@mapNotNull null
             }
 
-            val seconds = parseGtfsSeconds(stopTime["departure_time"].orEmpty())
+            val stopOffsetSeconds = parseGtfsSeconds(stopTime["departure_time"].orEmpty())
                 ?: parseGtfsSeconds(stopTime["arrival_time"].orEmpty())
                 ?: return@mapNotNull null
-            val departureTime = serviceStart.plusSeconds(seconds.toLong())
-            if (!departureTime.isAfter(now)) return@mapNotNull null
 
-            val secondsUntil = Duration.between(now, departureTime).seconds.coerceAtLeast(0)
-            MetroDeparture(
+            val tripId = stopTime["trip_id"].orEmpty()
+            val departureTime = nextDepartureTime(
+                serviceStart = serviceStart,
+                tripId = tripId,
+                stopOffsetSeconds = stopOffsetSeconds,
+                now = now,
+            ) ?: return@mapNotNull null
+
+            departure(
                 stopName = stop["stop_name"].orEmpty().ifBlank { target.label },
                 routeName = routeName,
                 destination = destination,
                 departureTime = departureTime,
-                minutesUntil = (secondsUntil + 59) / 60,
+                now = now,
             )
         }
+    }
+
+    private fun nextDepartureTime(
+        serviceStart: LocalDateTime,
+        tripId: String,
+        stopOffsetSeconds: Int,
+        now: LocalDateTime,
+    ): LocalDateTime? {
+        val frequencyDepartures = frequenciesByTripId[tripId].orEmpty()
+            .asSequence()
+            .mapNotNull { frequency ->
+                nextFrequencyDepartureTime(
+                    serviceStart = serviceStart,
+                    stopOffsetSeconds = stopOffsetSeconds,
+                    frequency = frequency,
+                    now = now,
+                )
+            }
+            .minOrNull()
+        if (frequencyDepartures != null) return frequencyDepartures
+
+        val departureTime = serviceStart.plusSeconds(stopOffsetSeconds.toLong())
+        return departureTime.takeIf { it.isAfter(now) }
+    }
+
+    private fun nextFrequencyDepartureTime(
+        serviceStart: LocalDateTime,
+        stopOffsetSeconds: Int,
+        frequency: Map<String, String>,
+        now: LocalDateTime,
+    ): LocalDateTime? {
+        val startSeconds = parseGtfsSeconds(frequency["start_time"].orEmpty()) ?: return null
+        val endSeconds = parseGtfsSeconds(frequency["end_time"].orEmpty()) ?: return null
+        val headwaySeconds = frequency["headway_secs"].orEmpty().toIntOrNull()
+            ?.takeIf { it > 0 }
+            ?: return null
+
+        val firstDepartureSeconds = startSeconds + stopOffsetSeconds
+        val lastDepartureSeconds = endSeconds + stopOffsetSeconds
+        val nowSeconds = Duration.between(serviceStart, now).seconds
+        if (nowSeconds > lastDepartureSeconds) return null
+
+        val intervalsAfterStart = ((nowSeconds - firstDepartureSeconds).coerceAtLeast(0) +
+            headwaySeconds - 1) / headwaySeconds
+        val departureSeconds = firstDepartureSeconds + intervalsAfterStart * headwaySeconds
+        if (departureSeconds > lastDepartureSeconds) return null
+
+        return serviceStart.plusSeconds(departureSeconds)
+            .takeIf { it.isAfter(now) }
+    }
+
+    private fun departure(
+        stopName: String,
+        routeName: String,
+        destination: String,
+        departureTime: LocalDateTime,
+        now: LocalDateTime,
+    ): MetroDeparture {
+        val secondsUntil = Duration.between(now, departureTime).seconds.coerceAtLeast(0)
+        return MetroDeparture(
+            stopName = stopName,
+            routeName = routeName,
+            destination = destination,
+            departureTime = departureTime,
+            minutesUntil = (secondsUntil + 59) / 60,
+        )
     }
 
     private fun activeServices(date: LocalDate): Set<String> {
@@ -312,6 +379,8 @@ private data class GtfsFeed(
                 tripsById = GtfsCsv.parseTable(files.getValue("trips.txt"))
                     .associateBy { it["trip_id"].orEmpty() },
                 stopTimes = GtfsCsv.parseTable(files.getValue("stop_times.txt")),
+                frequenciesByTripId = GtfsCsv.parseTable(files["frequencies.txt"].orEmpty())
+                    .groupBy { it["trip_id"].orEmpty() },
                 calendar = GtfsCsv.parseTable(files["calendar.txt"].orEmpty()),
                 calendarDates = GtfsCsv.parseTable(files["calendar_dates.txt"].orEmpty()),
             )

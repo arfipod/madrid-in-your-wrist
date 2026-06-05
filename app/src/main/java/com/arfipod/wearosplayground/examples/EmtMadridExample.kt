@@ -31,14 +31,20 @@ fun EmtMadridExample(
 ) {
     val client = remember {
         EmtMadridClient(
-            clientId = BuildConfig.EMT_CLIENT_ID,
-            passKey = BuildConfig.EMT_PASS_KEY,
+            credentials = EmtMadridCredentials(
+                clientId = BuildConfig.EMT_CLIENT_ID,
+                passKey = BuildConfig.EMT_PASS_KEY,
+                email = BuildConfig.EMT_EMAIL,
+                password = BuildConfig.EMT_PASSWORD,
+            ),
         )
     }
+    val hasCredentials = (BuildConfig.EMT_CLIENT_ID.isNotBlank() && BuildConfig.EMT_PASS_KEY.isNotBlank()) ||
+        (BuildConfig.EMT_EMAIL.isNotBlank() && BuildConfig.EMT_PASSWORD.isNotBlank())
     var requestCount by remember { mutableIntStateOf(0) }
     var state by remember {
         mutableStateOf<EmtUiState>(
-            if (BuildConfig.EMT_CLIENT_ID.isBlank() || BuildConfig.EMT_PASS_KEY.isBlank()) {
+            if (!hasCredentials) {
                 EmtUiState.MissingCredentials
             } else {
                 EmtUiState.Loading
@@ -47,7 +53,7 @@ fun EmtMadridExample(
     }
 
     LaunchedEffect(requestCount) {
-        if (BuildConfig.EMT_CLIENT_ID.isBlank() || BuildConfig.EMT_PASS_KEY.isBlank()) {
+        if (!hasCredentials) {
             state = EmtUiState.MissingCredentials
             return@LaunchedEffect
         }
@@ -110,7 +116,7 @@ fun EmtMadridExample(
 }
 
 private fun EmtUiState.label(): String = when (this) {
-    EmtUiState.MissingCredentials -> "Set EMT credentials"
+    EmtUiState.MissingCredentials -> "Set EMT login"
     EmtUiState.Loading -> "Reading EMT..."
     is EmtUiState.Loaded -> arrival.compactLabel()
     EmtUiState.NoArrival -> "No E3 arrival"
