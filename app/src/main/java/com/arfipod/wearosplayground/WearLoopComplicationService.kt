@@ -7,31 +7,67 @@ import androidx.wear.watchface.complications.data.PlainComplicationText
 import androidx.wear.watchface.complications.data.ShortTextComplicationData
 import androidx.wear.watchface.complications.datasource.ComplicationRequest
 import androidx.wear.watchface.complications.datasource.SuspendingComplicationDataSourceService
+import com.arfipod.wearosplayground.transit.MadridTransitKind
+import com.arfipod.wearosplayground.transit.MadridTransitPlace
+import com.arfipod.wearosplayground.transit.MadridTransitSnapshot
+import com.arfipod.wearosplayground.transit.MadridTransitSnapshotItem
+import com.arfipod.wearosplayground.transit.MadridTransitSnapshotStore
+import com.arfipod.wearosplayground.transit.MadridTransitStore
 
 class WearLoopComplicationService : SuspendingComplicationDataSourceService() {
     override suspend fun onComplicationRequest(request: ComplicationRequest): ComplicationData =
         if (request.complicationType == ComplicationType.SHORT_TEXT) {
-            shortTextComplicationData(BuildConfig.BUILD_TIMESTAMP)
+            val selectedPlace = MadridTransitStore(applicationContext).loadSelectedPlace()
+            shortTextComplicationData(
+                snapshot = MadridTransitSnapshotStore(applicationContext)
+                    .loadSnapshot()
+                    ?.forPlace(selectedPlace),
+                selectedPlace = selectedPlace,
+                buildTimestamp = BuildConfig.BUILD_TIMESTAMP,
+            )
         } else {
             NoDataComplicationData()
         }
 
     override fun getPreviewData(type: ComplicationType): ComplicationData? =
         if (type == ComplicationType.SHORT_TEXT) {
-            shortTextComplicationData("2026-06-02T00:00:00Z")
+            shortTextComplicationData(
+                snapshot = MadridTransitSnapshot(
+                    updatedAt = "08:15",
+                    items = listOf(
+                        MadridTransitSnapshotItem(
+                            optionId = "preview",
+                            kind = MadridTransitKind.BUS,
+                            place = MadridTransitPlace.HOME,
+                            optionLabel = "Daroca E3",
+                            detail = "Valderrivas",
+                            routeLabel = "E3",
+                            destination = "VALDERRIVAS",
+                            timeLabel = "4m",
+                            rankMinutes = 4,
+                        )
+                    ),
+                ),
+                selectedPlace = MadridTransitPlace.HOME,
+                buildTimestamp = "2026-06-02T00:00:00Z",
+            )
         } else {
             null
         }
 
-    private fun shortTextComplicationData(buildTimestamp: String): ShortTextComplicationData =
+    private fun shortTextComplicationData(
+        snapshot: MadridTransitSnapshot?,
+        selectedPlace: MadridTransitPlace?,
+        buildTimestamp: String,
+    ): ShortTextComplicationData =
         ShortTextComplicationData.Builder(
-            text = PlainComplicationText.Builder(WearLoopComplicationContent.text()).build(),
+            text = PlainComplicationText.Builder(WearLoopComplicationContent.text(snapshot)).build(),
             contentDescription = PlainComplicationText.Builder(
-                WearLoopComplicationContent.contentDescription(buildTimestamp)
+                WearLoopComplicationContent.contentDescription(snapshot, buildTimestamp)
             ).build(),
         )
             .setTitle(
-                PlainComplicationText.Builder(WearLoopComplicationContent.title()).build()
+                PlainComplicationText.Builder(WearLoopComplicationContent.title(snapshot, selectedPlace)).build()
             )
             .build()
 }

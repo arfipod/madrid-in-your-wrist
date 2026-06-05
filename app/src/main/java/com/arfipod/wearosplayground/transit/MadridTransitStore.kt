@@ -2,11 +2,12 @@ package com.arfipod.wearosplayground.transit
 
 import android.content.Context
 
-private const val PREFS_NAME = "madrid_transit"
+internal const val MADRID_TRANSIT_PREFS_NAME = "madrid_transit"
 private const val KEY_FAVORITES = "favorites"
+private const val KEY_SELECTED_PLACE = "selected_place"
 
 class MadridTransitStore(context: Context) {
-    private val preferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    private val preferences = context.getSharedPreferences(MADRID_TRANSIT_PREFS_NAME, Context.MODE_PRIVATE)
 
     fun loadFavorites(): List<MadridTransitFavorite> {
         val raw = preferences.getString(KEY_FAVORITES, null)
@@ -18,12 +19,23 @@ class MadridTransitStore(context: Context) {
             .putString(KEY_FAVORITES, MadridTransitFavoritesCodec.encode(favorites))
             .apply()
     }
+
+    fun loadSelectedPlace(): MadridTransitPlace {
+        return MadridTransitPlace.fromId(preferences.getString(KEY_SELECTED_PLACE, null))
+            ?: MadridTransitPlace.DEFAULT
+    }
+
+    fun saveSelectedPlace(place: MadridTransitPlace) {
+        preferences.edit()
+            .putString(KEY_SELECTED_PLACE, place.id)
+            .apply()
+    }
 }
 
 object MadridTransitFavoritesCodec {
     fun encode(favorites: List<MadridTransitFavorite>): String {
         return favorites.joinToString(separator = ";") { favorite ->
-            "${favorite.option.id},${favorite.clampedCount}"
+            "${favorite.option.id},${favorite.clampedCount},${favorite.place.id}"
         }
     }
 
@@ -36,8 +48,13 @@ object MadridTransitFavoritesCodec {
                 val parts = entry.split(",")
                 val optionId = parts.getOrNull(0).orEmpty()
                 val count = parts.getOrNull(1)?.toIntOrNull() ?: MadridTransitCounts.DEFAULT
-                MadridTransitCatalog.favoriteFor(optionId = optionId, count = count)
+                val place = MadridTransitPlace.fromId(parts.getOrNull(2)) ?: MadridTransitPlace.DEFAULT
+                MadridTransitCatalog.favoriteFor(
+                    optionId = optionId,
+                    count = count,
+                    place = place,
+                )
             }
-            .distinctBy { it.option.id }
+            .distinctBy { favorite -> "${favorite.place.id}:${favorite.option.id}" }
     }
 }

@@ -1,25 +1,59 @@
 package com.arfipod.wearosplayground
 
+import com.arfipod.wearosplayground.transit.MadridTransitKind
+import com.arfipod.wearosplayground.transit.MadridTransitPlace
+import com.arfipod.wearosplayground.transit.MadridTransitSnapshot
+import com.arfipod.wearosplayground.transit.MadridTransitSnapshotItem
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class WearLoopTileContentTest {
     @Test
-    fun tileTextIsStableAndShort() {
-        assertEquals("Madrid Wrist", WearLoopTileContent.title())
-        assertEquals("Open app for Metro and bus", WearLoopTileContent.footer())
+    fun tileUsesCachedHeadlineForSelectedPlace() {
+        val snapshot = snapshot(
+            item(
+                place = MadridTransitPlace.HOME,
+                optionLabel = "Daroca E3",
+                routeLabel = "E3",
+                timeLabel = "4m",
+            )
+        )
+
+        assertEquals("Casa · Madrid", WearLoopTileContent.title(snapshot, MadridTransitPlace.HOME))
+        assertEquals("E3 4m", WearLoopTileContent.body(snapshot))
+        assertEquals("Daroca E3 · 08:15", WearLoopTileContent.footer(snapshot))
     }
 
     @Test
-    fun bodyShortensIsoTimestamp() {
-        val body = WearLoopTileContent.body("2026-06-02T18:13:29.534290194Z")
-
-        assertEquals("Build 2026-06-02T18:13:29", body)
+    fun tileFallbackTextStaysUsefulWithoutCache() {
+        assertEquals("Trabajo · Madrid", WearLoopTileContent.title(null, MadridTransitPlace.WORK))
+        assertEquals("Sin datos", WearLoopTileContent.body(null))
+        assertEquals("Abre la app y toca ↻", WearLoopTileContent.footer(null))
     }
 
     @Test
     fun freshnessIntervalAvoidsOverlyFrequentUpdates() {
         assertTrue(WearLoopTileContent.FRESHNESS_INTERVAL_MILLIS >= 60_000L)
     }
+
+    private fun snapshot(vararg items: MadridTransitSnapshotItem): MadridTransitSnapshot =
+        MadridTransitSnapshot(updatedAt = "08:15", items = items.toList())
+
+    private fun item(
+        place: MadridTransitPlace,
+        optionLabel: String,
+        routeLabel: String,
+        timeLabel: String,
+    ): MadridTransitSnapshotItem = MadridTransitSnapshotItem(
+        optionId = optionLabel,
+        kind = MadridTransitKind.BUS,
+        place = place,
+        optionLabel = optionLabel,
+        detail = "Valderrivas",
+        routeLabel = routeLabel,
+        destination = "VALDERRIVAS",
+        timeLabel = timeLabel,
+        rankMinutes = timeLabel.removeSuffix("m").toIntOrNull() ?: 0,
+    )
 }

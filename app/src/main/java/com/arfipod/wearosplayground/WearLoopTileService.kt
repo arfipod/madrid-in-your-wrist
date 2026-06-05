@@ -10,6 +10,8 @@ import androidx.wear.protolayout.types.layoutString
 import androidx.wear.tiles.RequestBuilders
 import androidx.wear.tiles.TileBuilders.Tile
 import androidx.wear.tiles.TileService
+import com.arfipod.wearosplayground.transit.MadridTransitSnapshotStore
+import com.arfipod.wearosplayground.transit.MadridTransitStore
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 
@@ -17,24 +19,28 @@ class WearLoopTileService : TileService() {
     override fun onTileRequest(
         requestParams: RequestBuilders.TileRequest,
     ): ListenableFuture<Tile> {
+        val selectedPlace = MadridTransitStore(applicationContext).loadSelectedPlace()
+        val snapshot = MadridTransitSnapshotStore(applicationContext)
+            .loadSnapshot()
+            ?.forPlace(selectedPlace)
         val layout = materialScope(this, requestParams.deviceConfiguration) {
             primaryLayout(
                 titleSlot = {
                     text(
-                        text = WearLoopTileContent.title().layoutString,
+                        text = WearLoopTileContent.title(snapshot, selectedPlace).layoutString,
                         typography = Typography.TITLE_MEDIUM,
                     )
                 },
                 mainSlot = {
                     text(
-                        text = WearLoopTileContent.body(BuildConfig.BUILD_TIMESTAMP).layoutString,
-                        typography = Typography.BODY_MEDIUM,
-                        maxLines = 2,
+                        text = WearLoopTileContent.body(snapshot).layoutString,
+                        typography = Typography.TITLE_MEDIUM,
+                        maxLines = 1,
                     )
                 },
                 bottomSlot = {
                     text(
-                        text = WearLoopTileContent.footer().layoutString,
+                        text = WearLoopTileContent.footer(snapshot).layoutString,
                         typography = Typography.BODY_SMALL,
                         maxLines = 2,
                     )

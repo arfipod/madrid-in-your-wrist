@@ -8,15 +8,26 @@ opens a transport dashboard instead of the old playground home.
 
 The watch app can be operated entirely from Wear OS:
 
-- Shows a persisted list of Metro and bus favorites.
-- Adds Metro stations and EMT bus stops from separate pickers.
-- Lets each favorite choose how many upcoming departures or arrivals to show.
-- Refreshes all favorites from the watch.
+- Shows a persisted list of Metro and bus favorites grouped by context:
+  `Casa`, `Trabajo`, and `María`.
+- Shows a large top glance card with the soonest cached or freshly loaded
+  departure/arrival for the selected context.
+- Adds Metro stations and EMT bus stops from separate pickers into the currently
+  selected context.
+- Lets each favorite choose how many upcoming departures or arrivals to show, but
+  keeps count/delete controls behind an explicit `EDIT` mode to make the default
+  path glance-first.
+- Refreshes only the currently selected context from the watch. Other contexts
+  keep their last successful cached snapshot until the user switches to them and
+  refreshes.
 - Requests location permission from the watch and sorts the local catalog by
   nearest options when a last known location is available.
+- Feeds the Wear OS Tile and `SHORT_TEXT` complication from the last cached
+  snapshot instead of doing network work from those glance surfaces.
 
-Favorites are stored in `SharedPreferences`, so the watch keeps the list between
-app launches. The first launch seeds one Metro favorite and one EMT bus favorite.
+Favorites, counts, selected context, and the latest transit snapshot are stored
+in `SharedPreferences`, so the watch keeps useful data between app launches. The
+first launch seeds one Metro favorite and one EMT bus favorite in `Casa`.
 
 ## Data Sources
 
@@ -46,9 +57,9 @@ That page lists E3 stops including `FELIPE II - 755`,
 Metro:
 
 ```text
-Arguelles L4 -> Pinar de Chamartin
+Argüelles L4 -> Pinar de Chamartín
 Goya L2      -> Las Rosas
-Sol L1       -> Pinar de Chamartin
+Sol L1       -> Pinar de Chamartín
 ```
 
 Bus:
@@ -61,6 +72,22 @@ Valderrivas E3  -> Felipe II
 
 The catalog is data-driven in `MadridTransitCatalog`, so adding more stations or
 stops should not require changing the UI flow.
+
+## Glance Surfaces
+
+The Activity is the only surface that refreshes Metro and EMT data. The Tile and
+complication read the last cached snapshot for the selected context and format it
+for quick glances:
+
+```text
+Tile title:       Casa · Madrid
+Tile body:        E3 4m
+Tile footer:      Daroca E3 · 08:15
+Complication:     E3 4m
+```
+
+This keeps Tile/complication rendering deterministic and avoids doing expensive
+network work from surfaces that should be readable in a few seconds.
 
 ## Screenshots
 
@@ -81,10 +108,13 @@ Captured from the installed debug APK on a real Pixel Watch 3.
 ```text
 MainActivity.kt                 Launcher and direct example-route bridge
 MadridInYourWristApp.kt         Wear OS Compose product UI
-transit/MadridTransitModels.kt  Catalog, favorites, counts, distance sorting
-transit/MadridTransitStore.kt   SharedPreferences persistence and codec
-transit/MadridTransitRuntime.kt Runtime loading across Metro and bus favorites
+transit/MadridTransitModels.kt    Catalog, places, favorites, counts, distance sorting
+transit/MadridTransitStore.kt     SharedPreferences favorites/place persistence
+transit/MadridTransitSnapshot.kt  Cached next-arrival snapshot for app, Tile, complication
+transit/MadridTransitRuntime.kt   Runtime loading across Metro and bus favorites
 transit/MadridLocationProvider.kt Platform last-known-location helper
+WearLoopTileService.kt            ProtoLayout Tile fed by cached selected-place snapshot
+WearLoopComplicationService.kt    SHORT_TEXT complication fed by cached selected-place snapshot
 ```
 
 ## Verification

@@ -13,6 +13,24 @@ enum class MadridTransitKind(val label: String) {
     BUS("Bus"),
 }
 
+enum class MadridTransitPlace(
+    val id: String,
+    val label: String,
+    val shortLabel: String,
+) {
+    HOME(id = "home", label = "Casa", shortLabel = "Casa"),
+    WORK(id = "work", label = "Trabajo", shortLabel = "Trabajo"),
+    MARIA(id = "maria", label = "María", shortLabel = "María"),
+    ;
+
+    companion object {
+        val DEFAULT: MadridTransitPlace = HOME
+        val selectable: List<MadridTransitPlace> = entries.toList()
+
+        fun fromId(id: String?): MadridTransitPlace? = entries.firstOrNull { place -> place.id == id }
+    }
+}
+
 data class MadridGeoPoint(
     val latitude: Double,
     val longitude: Double,
@@ -37,6 +55,7 @@ data class MadridTransitOption(
 data class MadridTransitFavorite(
     val option: MadridTransitOption,
     val count: Int,
+    val place: MadridTransitPlace = MadridTransitPlace.DEFAULT,
 ) {
     val clampedCount: Int
         get() = MadridTransitCounts.clamp(count)
@@ -44,6 +63,8 @@ data class MadridTransitFavorite(
     fun withCount(nextCount: Int): MadridTransitFavorite = copy(
         count = MadridTransitCounts.clamp(nextCount),
     )
+
+    fun withPlace(nextPlace: MadridTransitPlace): MadridTransitFavorite = copy(place = nextPlace)
 }
 
 object MadridTransitCounts {
@@ -59,11 +80,11 @@ object MadridTransitCatalog {
         MadridTransitOption(
             id = "metro_l4_arguelles_pinar",
             kind = MadridTransitKind.METRO,
-            label = "Arguelles L4",
-            detail = "Pinar de Chamartin",
+            label = "Argüelles L4",
+            detail = "Pinar de Chamartín",
             location = MadridGeoPoint(latitude = 40.4304, longitude = -3.7159),
             metroTarget = MetroScheduleTarget(
-                label = "L4 Arguelles -> Pinar de Chamartin",
+                label = "L4 Argüelles -> Pinar de Chamartín",
                 stopNameQuery = "Argüelles",
                 routeNameQuery = "4",
                 destinationQuery = "Pinar de Chamartín",
@@ -86,10 +107,10 @@ object MadridTransitCatalog {
             id = "metro_l1_sol_pinar",
             kind = MadridTransitKind.METRO,
             label = "Sol L1",
-            detail = "Pinar de Chamartin",
+            detail = "Pinar de Chamartín",
             location = MadridGeoPoint(latitude = 40.4168, longitude = -3.7038),
             metroTarget = MetroScheduleTarget(
-                label = "L1 Sol -> Pinar de Chamartin",
+                label = "L1 Sol -> Pinar de Chamartín",
                 stopNameQuery = "Sol",
                 routeNameQuery = "1",
                 destinationQuery = "Pinar de Chamartín",
@@ -141,20 +162,22 @@ object MadridTransitCatalog {
 
     val allOptions: List<MadridTransitOption> = metroOptions + busOptions
 
-    val defaultFavorites: List<MadridTransitFavorite> = listOf(
-        favoriteFor("metro_l4_arguelles_pinar"),
-        favoriteFor("bus_e3_daroca_valderrivas"),
-    ).filterNotNull()
+    val defaultFavorites: List<MadridTransitFavorite> = listOfNotNull(
+        favoriteFor("metro_l4_arguelles_pinar", place = MadridTransitPlace.HOME),
+        favoriteFor("bus_e3_daroca_valderrivas", place = MadridTransitPlace.HOME),
+    )
 
     fun optionById(id: String): MadridTransitOption? = allOptions.firstOrNull { it.id == id }
 
     fun favoriteFor(
         optionId: String,
         count: Int = MadridTransitCounts.DEFAULT,
+        place: MadridTransitPlace = MadridTransitPlace.DEFAULT,
     ): MadridTransitFavorite? = optionById(optionId)?.let { option ->
         MadridTransitFavorite(
             option = option,
             count = MadridTransitCounts.clamp(count),
+            place = place,
         )
     }
 

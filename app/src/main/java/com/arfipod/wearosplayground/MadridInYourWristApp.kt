@@ -49,10 +49,19 @@ import com.arfipod.wearosplayground.transit.MadridTransitFavorite
 import com.arfipod.wearosplayground.transit.MadridTransitKind
 import com.arfipod.wearosplayground.transit.MadridTransitLoadResult
 import com.arfipod.wearosplayground.transit.MadridTransitOption
+import com.arfipod.wearosplayground.transit.MadridTransitPlace
 import com.arfipod.wearosplayground.transit.MadridTransitRuntime
+import com.arfipod.wearosplayground.transit.MadridTransitSnapshot
+import com.arfipod.wearosplayground.transit.MadridTransitSnapshotItem
+import com.arfipod.wearosplayground.transit.MadridTransitSnapshotStore
+import com.arfipod.wearosplayground.transit.MadridTransitSnapshots
 import com.arfipod.wearosplayground.transit.MadridTransitStore
+import com.arfipod.wearosplayground.transit.madridTransitBusMinuteLabel
+import com.arfipod.wearosplayground.transit.madridTransitMinuteLabel
+import com.arfipod.wearosplayground.transit.madridTransitShortRoute
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 private enum class MadridTransitScreen {
     HOME,
@@ -80,6 +89,7 @@ fun MadridInYourWristApp(
     MaterialTheme {
         val context = LocalContext.current
         val store = remember { MadridTransitStore(context.applicationContext) }
+        val snapshotStore = remember { MadridTransitSnapshotStore(context.applicationContext) }
         val runtime = remember {
             MadridTransitRuntime(
                 napApiKey = BuildConfig.NAP_API_KEY,
@@ -92,8 +102,11 @@ fun MadridInYourWristApp(
             )
         }
         var screen by remember { mutableStateOf(MadridTransitScreen.HOME) }
+        var selectedPlace by remember { mutableStateOf(store.loadSelectedPlace()) }
         var favorites by remember { mutableStateOf(store.loadFavorites()) }
         var refreshCount by remember { mutableIntStateOf(0) }
+        var editMode by remember { mutableStateOf(false) }
+        var lastSnapshot by remember { mutableStateOf(snapshotStore.loadSnapshot()) }
         var uiState by remember { mutableStateOf<TransitUiState>(TransitUiState.Idle) }
 
         fun persist(nextFavorites: List<MadridTransitFavorite>) {
@@ -103,24 +116,33 @@ fun MadridInYourWristApp(
             onHaptic()
         }
 
+        fun selectPlace(place: MadridTransitPlace) {
+            selectedPlace = place
+            store.saveSelectedPlace(place)
+            editMode = false
+            screen = MadridTransitScreen.HOME
+            onHaptic()
+        }
+
         fun addOption(option: MadridTransitOption) {
-            if (favorites.any { it.option.id == option.id }) return
+            if (favorites.any { favorite -> favorite.option.id == option.id && favorite.place == selectedPlace }) return
             persist(
                 favorites + MadridTransitFavorite(
                     option = option,
                     count = MadridTransitCounts.DEFAULT,
+                    place = selectedPlace,
                 )
             )
         }
 
         fun removeOption(optionId: String) {
-            persist(favorites.filterNot { it.option.id == optionId })
+            persist(favorites.filterNot { favorite -> favorite.option.id == optionId && favorite.place == selectedPlace })
         }
 
         fun changeCount(optionId: String, delta: Int) {
             persist(
                 favorites.map { favorite ->
-                    if (favorite.option.id == optionId) {
+                    if (favorite.option.id == optionId && favorite.place == selectedPlace) {
                         favorite.withCount(favorite.clampedCount + delta)
                     } else {
                         favorite
@@ -129,21 +151,45 @@ fun MadridInYourWristApp(
             )
         }
 
-        LaunchedEffect(favorites, refreshCount) {
-            if (favorites.isEmpty()) {
+        LaunchedEffect(favorites, selectedPlace, refreshCount) {
+            val selectedFavorites = favorites.filter { favorite -> favorite.place == selectedPlace }
+            val previousSnapshot = snapshotStore.loadSnapshot() ?: lastSnapshot
+            if (selectedFavorites.isEmpty()) {
+                val updatedAt = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"))
+                val mergedSnapshot = MadridTransitSnapshots.mergePlace(
+                    previous = previousSnapshot,
+                    place = selectedPlace,
+                    updatedAt = updatedAt,
+                    replacementItems = emptyList(),
+                )
+                lastSnapshot = mergedSnapshot.takeIf { snapshot -> snapshot.items.isNotEmpty() }
+                snapshotStore.saveSnapshot(mergedSnapshot)
                 uiState = TransitUiState.Idle
                 return@LaunchedEffect
             }
 
             uiState = TransitUiState.Loading
             uiState = runCatching {
-                runtime.load(favorites)
+                runtime.load(selectedFavorites)
             }.fold(
                 onSuccess = { results ->
-                    onEvent("Madrid transit refreshed: ${results.size} favorites")
+                    val updatedAt = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"))
+                    val selectedSnapshot = MadridTransitSnapshots.fromResults(
+                        results = results,
+                        updatedAt = updatedAt,
+                    )
+                    val mergedSnapshot = MadridTransitSnapshots.mergePlace(
+                        previous = snapshotStore.loadSnapshot() ?: lastSnapshot,
+                        place = selectedPlace,
+                        updatedAt = updatedAt,
+                        replacementItems = selectedSnapshot.items,
+                    )
+                    lastSnapshot = mergedSnapshot.takeIf { snapshot -> snapshot.items.isNotEmpty() }
+                    snapshotStore.saveSnapshot(mergedSnapshot)
+                    onEvent("Madrid transit refreshed: ${results.size} ${selectedPlace.label} favorites")
                     TransitUiState.Loaded(
                         results = results,
-                        updatedAt = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm")),
+                        updatedAt = updatedAt,
                     )
                 },
                 onFailure = { error ->
@@ -158,14 +204,22 @@ fun MadridInYourWristApp(
                 .fillMaxSize()
                 .background(Color.Black)
                 .padding(horizontal = 14.dp, vertical = 8.dp),
-            contentAlignment = Alignment.Center,
+            contentAlignment = Alignment.TopCenter,
         ) {
             when (screen) {
                 MadridTransitScreen.HOME -> MadridTransitHome(
+                    selectedPlace = selectedPlace,
                     favorites = favorites,
+                    snapshot = lastSnapshot,
                     uiState = uiState,
+                    editMode = editMode,
+                    onPlaceSelected = ::selectPlace,
                     onRefresh = {
                         refreshCount += 1
+                        onHaptic()
+                    },
+                    onToggleEdit = {
+                        editMode = !editMode
                         onHaptic()
                     },
                     onAddMetro = { screen = MadridTransitScreen.ADD_METRO },
@@ -176,20 +230,23 @@ fun MadridInYourWristApp(
                     onRemove = ::removeOption,
                 )
                 MadridTransitScreen.ADD_METRO -> MadridTransitPicker(
-                    title = "Add Metro",
+                    title = "Metro",
+                    place = selectedPlace,
                     options = MadridTransitCatalog.metroOptions,
                     favorites = favorites,
                     onAdd = ::addOption,
                     onBack = { screen = MadridTransitScreen.HOME },
                 )
                 MadridTransitScreen.ADD_BUS -> MadridTransitPicker(
-                    title = "Add Bus",
+                    title = "Bus",
+                    place = selectedPlace,
                     options = MadridTransitCatalog.busOptions,
                     favorites = favorites,
                     onAdd = ::addOption,
                     onBack = { screen = MadridTransitScreen.HOME },
                 )
                 MadridTransitScreen.NEARBY -> MadridNearbyScreen(
+                    place = selectedPlace,
                     favorites = favorites,
                     onAdd = ::addOption,
                     onBack = { screen = MadridTransitScreen.HOME },
@@ -201,9 +258,14 @@ fun MadridInYourWristApp(
 
 @Composable
 private fun MadridTransitHome(
+    selectedPlace: MadridTransitPlace,
     favorites: List<MadridTransitFavorite>,
+    snapshot: MadridTransitSnapshot?,
     uiState: TransitUiState,
+    editMode: Boolean,
+    onPlaceSelected: (MadridTransitPlace) -> Unit,
     onRefresh: () -> Unit,
+    onToggleEdit: () -> Unit,
     onAddMetro: () -> Unit,
     onAddBus: () -> Unit,
     onNearby: () -> Unit,
@@ -211,6 +273,17 @@ private fun MadridTransitHome(
     onPlus: (String) -> Unit,
     onRemove: (String) -> Unit,
 ) {
+    val visibleFavorites = favorites.filter { favorite -> favorite.place == selectedPlace }
+    val visibleFavoriteIds = visibleFavorites.map { favorite -> favorite.option.id }.toSet()
+    val loadedResults = (uiState as? TransitUiState.Loaded)?.results.orEmpty()
+    val visibleSnapshotItems = snapshot?.items
+        .orEmpty()
+        .filter { item -> item.place == selectedPlace && item.optionId in visibleFavoriteIds }
+    val headline = visibleSnapshotItems.minWithOrNull(
+        compareBy<MadridTransitSnapshotItem> { item -> item.rankMinutes }
+            .thenBy { item -> item.optionLabel }
+    )
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -218,34 +291,57 @@ private fun MadridTransitHome(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(7.dp),
     ) {
-        Header(title = "Madrid Wrist", subtitle = uiState.headerStatus())
+        Header(
+            title = "Madrid Wrist",
+            subtitle = "${selectedPlace.label} · ${uiState.headerStatus()}",
+        )
+        PlaceSelector(
+            selectedPlace = selectedPlace,
+            onPlaceSelected = onPlaceSelected,
+        )
+        NextGlanceBlock(
+            selectedPlace = selectedPlace,
+            headline = headline,
+            isLoading = uiState is TransitUiState.Loading,
+            isFailed = uiState is TransitUiState.Failed,
+            hasFavorites = visibleFavorites.isNotEmpty(),
+        )
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             SmallActionButton(
                 modifier = Modifier.weight(1f),
-                label = "REFRESH",
+                label = if (uiState is TransitUiState.Loading) "..." else "↻",
                 enabled = uiState !is TransitUiState.Loading,
                 onClick = onRefresh,
             )
             SmallActionButton(
                 modifier = Modifier.weight(1f),
-                label = "NEARBY",
+                label = "CERCA",
                 onClick = onNearby,
+            )
+            SmallActionButton(
+                modifier = Modifier.weight(1f),
+                label = if (editMode) "OK" else "EDIT",
+                onClick = onToggleEdit,
             )
         }
 
-        if (favorites.isEmpty()) {
-            EmptyBlock(text = "No favorites")
+        if (visibleFavorites.isEmpty()) {
+            EmptyBlock(text = "Sin favoritos en ${selectedPlace.label}")
         } else {
-            val loadedResults = (uiState as? TransitUiState.Loaded)?.results.orEmpty()
-            favorites.forEach { favorite ->
-                val result = loadedResults.firstOrNull { it.favorite.option.id == favorite.option.id }
+            visibleFavorites.forEach { favorite ->
+                val result = loadedResults.firstOrNull { result ->
+                    result.favorite.option.id == favorite.option.id && result.favorite.place == selectedPlace
+                }
+                val snapshotItem = visibleSnapshotItems.firstOrNull { item -> item.optionId == favorite.option.id }
                 TransitFavoriteBlock(
                     favorite = favorite,
                     result = result,
+                    snapshotItem = snapshotItem,
                     isLoading = uiState is TransitUiState.Loading,
+                    editMode = editMode,
                     onMinus = onMinus,
                     onPlus = onPlus,
                     onRemove = onRemove,
@@ -276,14 +372,201 @@ private fun MadridTransitHome(
 }
 
 @Composable
+private fun PlaceSelector(
+    selectedPlace: MadridTransitPlace,
+    onPlaceSelected: (MadridTransitPlace) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
+    ) {
+        MadridTransitPlace.selectable.forEach { place ->
+            SmallActionButton(
+                modifier = Modifier.weight(1f),
+                label = place.selectorLabel(isSelected = place == selectedPlace),
+                onClick = { onPlaceSelected(place) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun NextGlanceBlock(
+    selectedPlace: MadridTransitPlace,
+    headline: MadridTransitSnapshotItem?,
+    isLoading: Boolean,
+    isFailed: Boolean,
+    hasFavorites: Boolean,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color(0xFF101820))
+            .padding(horizontal = 10.dp, vertical = 9.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        Text(
+            modifier = Modifier.fillMaxWidth(),
+            text = "Próximo · ${selectedPlace.label}",
+            color = Color(0xFFC7C7C7),
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            style = MaterialTheme.typography.bodySmall.copy(fontSize = 9.sp, lineHeight = 10.sp),
+        )
+        when {
+            isLoading -> {
+                Text(
+                    modifier = Modifier.fillMaxWidth(),
+                    text = "Actualizando",
+                    color = Color.White,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 22.sp,
+                        lineHeight = 24.sp,
+                    ),
+                )
+                Text(
+                    modifier = Modifier.fillMaxWidth(),
+                    text = "Leyendo Metro y EMT",
+                    color = Color(0xFFC7C7C7),
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp, lineHeight = 11.sp),
+                )
+            }
+            isFailed -> {
+                Text(
+                    modifier = Modifier.fillMaxWidth(),
+                    text = "Sin datos",
+                    color = Color.White,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 22.sp,
+                        lineHeight = 24.sp,
+                    ),
+                )
+                Text(
+                    modifier = Modifier.fillMaxWidth(),
+                    text = "Revisa conexión y toca ↻",
+                    color = Color(0xFFC7C7C7),
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp, lineHeight = 11.sp),
+                )
+            }
+            headline != null -> {
+                Text(
+                    modifier = Modifier.fillMaxWidth(),
+                    text = headline.timeLabel,
+                    color = headline.kind.accentColor(),
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 30.sp,
+                        lineHeight = 32.sp,
+                    ),
+                )
+                Text(
+                    modifier = Modifier.fillMaxWidth(),
+                    text = "${headline.routeLabel} · ${headline.optionLabel}",
+                    color = Color.White,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp,
+                        lineHeight = 13.sp,
+                    ),
+                )
+                Text(
+                    modifier = Modifier.fillMaxWidth(),
+                    text = "→ ${headline.destination}",
+                    color = Color(0xFFC7C7C7),
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp, lineHeight = 11.sp),
+                )
+            }
+            hasFavorites -> {
+                Text(
+                    modifier = Modifier.fillMaxWidth(),
+                    text = "Sin datos",
+                    color = Color.White,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 22.sp,
+                        lineHeight = 24.sp,
+                    ),
+                )
+                Text(
+                    modifier = Modifier.fillMaxWidth(),
+                    text = "Toca ↻ para actualizar",
+                    color = Color(0xFFC7C7C7),
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp, lineHeight = 11.sp),
+                )
+            }
+            else -> {
+                Text(
+                    modifier = Modifier.fillMaxWidth(),
+                    text = "Añade favoritos",
+                    color = Color.White,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 22.sp,
+                        lineHeight = 24.sp,
+                    ),
+                )
+                Text(
+                    modifier = Modifier.fillMaxWidth(),
+                    text = "+ Metro o + Bus para ${selectedPlace.label}",
+                    color = Color(0xFFC7C7C7),
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp, lineHeight = 11.sp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun MadridTransitPicker(
     title: String,
+    place: MadridTransitPlace,
     options: List<MadridTransitOption>,
     favorites: List<MadridTransitFavorite>,
     onAdd: (MadridTransitOption) -> Unit,
     onBack: () -> Unit,
 ) {
-    val selectedIds = favorites.map { it.option.id }.toSet()
+    val selectedIds = favorites
+        .filter { favorite -> favorite.place == place }
+        .map { favorite -> favorite.option.id }
+        .toSet()
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -291,7 +574,7 @@ private fun MadridTransitPicker(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(7.dp),
     ) {
-        Header(title = title, subtitle = "${options.size} saved choices")
+        Header(title = title, subtitle = "Añadir a ${place.label}")
         options.forEach { option ->
             OptionBlock(
                 option = option,
@@ -302,7 +585,7 @@ private fun MadridTransitPicker(
         }
         SmallActionButton(
             modifier = Modifier.fillMaxWidth(),
-            label = "BACK",
+            label = "VOLVER",
             onClick = onBack,
         )
     }
@@ -310,6 +593,7 @@ private fun MadridTransitPicker(
 
 @Composable
 private fun MadridNearbyScreen(
+    place: MadridTransitPlace,
     favorites: List<MadridTransitFavorite>,
     onAdd: (MadridTransitOption) -> Unit,
     onBack: () -> Unit,
@@ -318,18 +602,21 @@ private fun MadridNearbyScreen(
     val locationProvider = remember { MadridLocationProvider(context.applicationContext) }
     var location by remember { mutableStateOf<MadridGeoPoint?>(locationProvider.lastKnownLocation()) }
     var status by remember {
-        mutableStateOf(if (location == null) "No location yet" else "Closest choices")
+        mutableStateOf(if (location == null) "Sin ubicación" else "Paradas cercanas")
     }
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions(),
     ) { permissions ->
-        val granted = permissions.values.any { it }
+        val granted = permissions.values.any { granted -> granted }
         location = if (granted) locationProvider.lastKnownLocation() else null
-        status = if (location == null) "No location yet" else "Closest choices"
+        status = if (location == null) "Sin ubicación" else "Paradas cercanas"
     }
-    val selectedIds = favorites.map { it.option.id }.toSet()
+    val selectedIds = favorites
+        .filter { favorite -> favorite.place == place }
+        .map { favorite -> favorite.option.id }
+        .toSet()
     val nearby = location
-        ?.let { MadridTransitCatalog.nearbyOptions(from = it, limit = 6) }
+        ?.let { point -> MadridTransitCatalog.nearbyOptions(from = point, limit = 6) }
         .orEmpty()
 
     Column(
@@ -339,14 +626,14 @@ private fun MadridNearbyScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(7.dp),
     ) {
-        Header(title = "Nearby", subtitle = status)
+        Header(title = "Cerca", subtitle = "$status · Añadir a ${place.label}")
         SmallActionButton(
             modifier = Modifier.fillMaxWidth(),
-            label = "LOCATE",
+            label = "UBICAR",
             onClick = {
                 if (locationProvider.hasLocationPermission()) {
                     location = locationProvider.lastKnownLocation()
-                    status = if (location == null) "No location yet" else "Closest choices"
+                    status = if (location == null) "Sin ubicación" else "Paradas cercanas"
                 } else {
                     launcher.launch(
                         arrayOf(
@@ -359,7 +646,7 @@ private fun MadridNearbyScreen(
         )
 
         if (nearby.isEmpty()) {
-            EmptyBlock(text = "Location unavailable")
+            EmptyBlock(text = "Ubicación no disponible")
         } else {
             nearby.forEach { (option, meters) ->
                 OptionBlock(
@@ -372,7 +659,7 @@ private fun MadridNearbyScreen(
         }
         SmallActionButton(
             modifier = Modifier.fillMaxWidth(),
-            label = "BACK",
+            label = "VOLVER",
             onClick = onBack,
         )
     }
@@ -382,7 +669,9 @@ private fun MadridNearbyScreen(
 private fun TransitFavoriteBlock(
     favorite: MadridTransitFavorite,
     result: MadridTransitLoadResult?,
+    snapshotItem: MadridTransitSnapshotItem?,
     isLoading: Boolean,
+    editMode: Boolean,
     onMinus: (String) -> Unit,
     onPlus: (String) -> Unit,
     onRemove: (String) -> Unit,
@@ -414,10 +703,14 @@ private fun TransitFavoriteBlock(
                 ),
             )
             Text(
-                text = "${favorite.clampedCount}x",
+                text = snapshotItem?.timeLabel ?: if (isLoading) "..." else "--",
                 color = Color.White,
                 textAlign = TextAlign.End,
-                style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp,
+                    lineHeight = 13.sp,
+                ),
             )
         }
         Text(
@@ -429,7 +722,7 @@ private fun TransitFavoriteBlock(
             style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp, lineHeight = 11.sp),
         )
         ResultLines(
-            lines = if (isLoading) listOf("Loading...") else result.displayLines(),
+            lines = if (isLoading) listOf("Actualizando...") else result.displayLines(fallback = snapshotItem),
             color = if (result is MadridTransitLoadResult.MissingConfig ||
                 result is MadridTransitLoadResult.Failed
             ) {
@@ -438,27 +731,35 @@ private fun TransitFavoriteBlock(
                 Color.White
             },
         )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(5.dp),
-        ) {
-            SmallActionButton(
-                modifier = Modifier.weight(1f),
-                label = "-",
-                enabled = favorite.clampedCount > MadridTransitCounts.MIN,
-                onClick = { onMinus(favorite.option.id) },
-            )
-            SmallActionButton(
-                modifier = Modifier.weight(1f),
-                label = "+",
-                enabled = favorite.clampedCount < MadridTransitCounts.MAX,
-                onClick = { onPlus(favorite.option.id) },
-            )
-            SmallActionButton(
-                modifier = Modifier.weight(1f),
-                label = "DEL",
-                onClick = { onRemove(favorite.option.id) },
-            )
+        if (editMode) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(5.dp),
+            ) {
+                SmallActionButton(
+                    modifier = Modifier.weight(1f),
+                    label = "-",
+                    enabled = favorite.clampedCount > MadridTransitCounts.MIN,
+                    onClick = { onMinus(favorite.option.id) },
+                )
+                SmallActionButton(
+                    modifier = Modifier.weight(1f),
+                    label = "${favorite.clampedCount}x",
+                    enabled = false,
+                    onClick = {},
+                )
+                SmallActionButton(
+                    modifier = Modifier.weight(1f),
+                    label = "+",
+                    enabled = favorite.clampedCount < MadridTransitCounts.MAX,
+                    onClick = { onPlus(favorite.option.id) },
+                )
+                SmallActionButton(
+                    modifier = Modifier.weight(1f),
+                    label = "DEL",
+                    onClick = { onRemove(favorite.option.id) },
+                )
+            }
         }
     }
 }
@@ -472,7 +773,7 @@ private fun OptionBlock(
 ) {
     val detail = listOfNotNull(
         option.detail,
-        distanceMeters?.let { formatDistance(it) },
+        distanceMeters?.let { meters -> formatDistance(meters) },
     ).joinToString(" | ")
     Column(
         modifier = Modifier
@@ -506,7 +807,7 @@ private fun OptionBlock(
         )
         SmallActionButton(
             modifier = Modifier.fillMaxWidth(),
-            label = if (isSelected) "ADDED" else "ADD",
+            label = if (isSelected) "AÑADIDO" else "AÑADIR",
             enabled = !isSelected,
             onClick = onAdd,
         )
@@ -632,55 +933,52 @@ private fun Modifier.wearRotaryVerticalScroll(): Modifier {
 }
 
 private fun TransitUiState.headerStatus(): String = when (this) {
-    TransitUiState.Idle -> "Ready"
-    TransitUiState.Loading -> "Updating"
-    is TransitUiState.Loaded -> "Updated $updatedAt"
-    is TransitUiState.Failed -> "Refresh failed"
+    TransitUiState.Idle -> "Listo"
+    TransitUiState.Loading -> "Actualizando"
+    is TransitUiState.Loaded -> "Actualizado $updatedAt"
+    is TransitUiState.Failed -> "Error al actualizar"
 }
 
-private fun MadridTransitLoadResult?.displayLines(): List<String> = when (this) {
-    null -> listOf("Waiting")
+private fun MadridTransitLoadResult?.displayLines(fallback: MadridTransitSnapshotItem?): List<String> = when (this) {
+    null -> fallback?.let { item -> listOf("${item.routeLabel} hacia ${item.destination}") } ?: listOf("Esperando")
     is MadridTransitLoadResult.Metro -> {
         val prefix = if (result.isStale) {
-            result.validUntil?.let { "GTFS $it" } ?: "GTFS expired"
+            result.validUntil?.let { validUntil -> "GTFS $validUntil" } ?: "GTFS caducado"
         } else {
             null
         }
         listOfNotNull(prefix) + result.departures
             .take(favorite.clampedCount)
-            .map { it.metroLine() }
-            .ifEmpty { listOf("No trains") }
+            .map { departure -> departure.metroLine() }
+            .ifEmpty { listOf("Sin trenes") }
     }
     is MadridTransitLoadResult.Bus -> arrivals
         .take(favorite.clampedCount)
-        .map { it.busLine() }
-        .ifEmpty { listOf("No buses") }
+        .map { arrival -> arrival.busLine() }
+        .ifEmpty { listOf("Sin buses") }
     is MadridTransitLoadResult.MissingConfig -> listOf(message)
     is MadridTransitLoadResult.Failed -> listOf(message)
 }
 
 private fun MetroDeparture.metroLine(): String {
-    return "${minutesUntil.timeLabel()} ${routeName.shortRoute()} -> $destination"
+    return "${minutesUntil.madridTransitMinuteLabel()} ${routeName.madridTransitShortRoute()} → $destination"
 }
 
 private fun EmtBusArrival.busLine(): String {
-    return "${secondsUntil.busTimeLabel()} $lineId -> $destination"
+    return "${secondsUntil.madridTransitBusMinuteLabel()} $lineId → $destination"
 }
-
-private fun Long.timeLabel(): String = if (this <= 0L) "Now" else "${this}m"
-
-private fun Int.busTimeLabel(): String = when {
-    this == 0 -> "Now"
-    this >= 999_999 -> "+20m"
-    else -> "${(this + 59) / 60}m"
-}
-
-private fun String.shortRoute(): String = substringBefore(" ")
-    .let { if (it.startsWith("L")) it else "L$it" }
 
 private fun MadridTransitKind.accentColor(): Color = when (this) {
     MadridTransitKind.METRO -> Color(0xFF82B1FF)
     MadridTransitKind.BUS -> Color(0xFF9CCC65)
+}
+
+private fun MadridTransitPlace.selectorLabel(isSelected: Boolean): String {
+    val compactLabel = when (this) {
+        MadridTransitPlace.WORK -> "Trab"
+        else -> shortLabel
+    }
+    return if (isSelected) compactLabel.uppercase(Locale.ROOT) else compactLabel
 }
 
 private fun formatDistance(meters: Int): String {

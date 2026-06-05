@@ -59,10 +59,10 @@ wearos_playground/
   PNGs and generate visual diffs when ImageMagick is available.
 - [Sensor logging experiments](docs/sensor-logging-experiments.md): activate and
   verify accelerometer logging through `WearLoop`.
-- [Tiles baseline](docs/tiles-baseline.md): minimal Wear OS Tile provider and
-  verification notes.
-- [Complications baseline](docs/complications-baseline.md): minimal
-  `SHORT_TEXT` complication data source and picker notes.
+- [Tiles baseline](docs/tiles-baseline.md): cached Madrid transit Tile provider
+  and verification notes.
+- [Complications baseline](docs/complications-baseline.md): cached
+  `SHORT_TEXT` transit complication data source and picker notes.
 - [Examples gallery](docs/examples.md): Flappy Bird, API output, 3D, audio,
   and video examples plus direct ADB launch commands.
 - [Metro Madrid NAP example](docs/metro-madrid-nap.md): NAP API key setup and
@@ -82,18 +82,27 @@ Current app features:
 
 - Launchable Wear OS Activity.
 - Manages Metro and EMT bus favorites directly on the watch.
-- Adds Metro stations and bus stops from separate watch pickers.
-- Lets each favorite choose how many upcoming transports to show.
+- Groups favorites by daily context: `Casa`, `Trabajo`, and `María`.
+- Puts the next Metro/bus arrival in a large glance card at the top of the home
+  screen, before the detailed favorites list.
+- Adds Metro stations and bus stops from separate watch pickers for the currently
+  selected context.
+- Lets each favorite choose how many upcoming transports to show, with edit
+  controls hidden behind `EDIT` to reduce accidental taps.
+- Refreshes only the selected context for lower latency and less network work.
 - Shows Metro de Madrid scheduled departures through the NAP/GTFS helper.
 - Shows EMT Madrid realtime bus arrivals through the MobilityLabs helper.
 - Sorts the local Metro/bus catalog by nearby location when permission and a
   last known location are available.
-- Persists favorites and counts on the watch.
+- Persists favorites, counts, selected context, and the last successful transit
+  snapshot on the watch.
 - Emits logs with the tag `WearLoop`.
 - Performs short haptic feedback on watch actions.
 - Uses Jetpack Compose for Wear OS for the baseline UI.
-- Provides a minimal Wear OS Tile showing build status.
-- Provides a minimal `SHORT_TEXT` complication data source.
+- Provides a Wear OS Tile that shows the latest cached next Metro/bus result
+  for the selected context.
+- Provides a `SHORT_TEXT` complication data source that shows a compact cached
+  result such as `E3 4m`.
 - Keeps direct ADB routes for the old examples: Flappy Bird, API output, Metro,
   EMT, 3D rendering, audio, and video playback.
 

@@ -282,8 +282,10 @@ transit refreshes complete or fail.
 ## Tiles baseline
 
 The app registers `WearLoopTileService` as a Wear OS tile provider. It renders a
-minimal ProtoLayout Material 3 tile with the app name, build timestamp, and a
-short footer.
+small ProtoLayout Material 3 tile backed by the last cached Madrid transit
+snapshot for the selected context. The Activity performs Metro/EMT refreshes;
+the tile only reads the snapshot so tile rendering stays deterministic and
+network-free.
 
 Code map:
 
@@ -300,8 +302,9 @@ can deploy and activate the tile during active development.
 ## Complications baseline
 
 The app registers `WearLoopComplicationService` as a `SHORT_TEXT` complication
-data source. It exposes short raw data to compatible watch faces; watch faces
-control rendering.
+data source. It exposes a compact cached Madrid transit headline such as
+`E3 4m` to compatible watch faces; watch faces control rendering. When no
+snapshot is available, it falls back to short Madrid Wrist status text.
 
 Code map:
 
