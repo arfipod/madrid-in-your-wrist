@@ -32,7 +32,7 @@ video
 
 Captured from the installed debug app on Wear OS targets.
 
-![Legacy Wear Loop examples home](images/examples/wear-home.png)
+![Legacy Madrid Wrist examples home](images/examples/wear-home.png)
 
 ## Included Examples
 
