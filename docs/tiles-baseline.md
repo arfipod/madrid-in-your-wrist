@@ -2,13 +2,13 @@
 
 The app includes a Wear OS Tile provider for Madrid Wrist. The Activity is the
 only surface that refreshes Metro and EMT data; the tile reads the last cached
-snapshot for the selected context from `SharedPreferences`.
+snapshot for the selected profile from `SharedPreferences`.
 
 ## Runtime behavior
 
 When cached data is available, the tile shows:
 
-- The selected context and app name, for example `Casa · Madrid`.
+- The selected profile and app name, for example `Perfil 1 · Madrid`.
 - The compact next transit result, for example `E3 4m`.
 - The favorite label and cache time, for example `Daroca E3 · 08:15`.
 

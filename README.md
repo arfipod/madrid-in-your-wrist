@@ -82,25 +82,28 @@ Current app features:
 
 - Launchable Wear OS Activity.
 - Manages Metro and EMT bus favorites directly on the watch.
-- Groups favorites by daily context: `Casa`, `Trabajo`, and `María`.
+- Groups favorites into generic profiles (`Perfil 1`, `Perfil 2`, `Perfil 3`)
+  so the app is not tied to one person's daily routine.
 - Puts the next Metro/bus arrival in a large glance card at the top of the home
   screen, before the detailed favorites list.
 - Adds Metro stations and bus stops from separate watch pickers for the currently
-  selected context.
+  selected profile.
 - Lets each favorite choose how many upcoming transports to show, with edit
   controls hidden behind `EDIT` to reduce accidental taps.
-- Refreshes only the selected context for lower latency and less network work.
+- Lets each favorite opt into a proximity trigger radius (`500m`, `1km`, `2km`)
+  for future/conditional distance-based activation.
+- Refreshes only the selected profile for lower latency and less network work.
 - Shows Metro de Madrid scheduled departures through the NAP/GTFS helper.
 - Shows EMT Madrid realtime bus arrivals through the MobilityLabs helper.
 - Sorts the local Metro/bus catalog by nearby location when permission and a
   last known location are available.
-- Persists favorites, counts, selected context, and the last successful transit
-  snapshot on the watch.
+- Persists favorites, counts, selected profile, proximity trigger settings, and
+  the last successful transit snapshot on the watch.
 - Emits logs with the tag `WearLoop`.
 - Performs short haptic feedback on watch actions.
 - Uses Jetpack Compose for Wear OS for the baseline UI.
 - Provides a Wear OS Tile that shows the latest cached next Metro/bus result
-  for the selected context.
+  for the selected profile.
 - Provides a `SHORT_TEXT` complication data source that shows a compact cached
   result such as `E3 4m`.
 - Keeps direct ADB routes for the old examples: Flappy Bird, API output, Metro,

@@ -35,7 +35,12 @@ class MadridTransitStore(context: Context) {
 object MadridTransitFavoritesCodec {
     fun encode(favorites: List<MadridTransitFavorite>): String {
         return favorites.joinToString(separator = ";") { favorite ->
-            "${favorite.option.id},${favorite.clampedCount},${favorite.place.id}"
+            listOf(
+                favorite.option.id,
+                favorite.clampedCount.toString(),
+                favorite.place.id,
+                favorite.normalizedProximityTriggerMeters?.toString().orEmpty(),
+            ).joinToString(separator = ",")
         }
     }
 
@@ -49,10 +54,12 @@ object MadridTransitFavoritesCodec {
                 val optionId = parts.getOrNull(0).orEmpty()
                 val count = parts.getOrNull(1)?.toIntOrNull() ?: MadridTransitCounts.DEFAULT
                 val place = MadridTransitPlace.fromId(parts.getOrNull(2)) ?: MadridTransitPlace.DEFAULT
+                val proximityTriggerMeters = parts.getOrNull(3)?.toIntOrNull()
                 MadridTransitCatalog.favoriteFor(
                     optionId = optionId,
                     count = count,
                     place = place,
+                    proximityTriggerMeters = proximityTriggerMeters,
                 )
             }
             .distinctBy { favorite -> "${favorite.place.id}:${favorite.option.id}" }

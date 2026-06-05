@@ -4,18 +4,18 @@ The app includes a Wear OS complication data source for Madrid Wrist. It exposes
 raw `SHORT_TEXT` data to compatible watch faces; the watch face remains
 responsible for rendering that data. The Activity is the only surface that
 refreshes Metro and EMT data, and the complication reads the last cached snapshot
-for the selected context.
+for the selected profile.
 
 ## Runtime behavior
 
 When cached data is available, the complication data source returns:
 
 - Short text: a compact headline such as `E3 4m`.
-- Short title: the context, such as `Casa`.
+- Short title: the profile, such as `P1`.
 - Content description: a fuller Madrid Wrist transit description with the cached
   update time.
 
-Without cached data, it returns `MAD` plus the selected context when available,
+Without cached data, it returns `MAD` plus the selected profile when available,
 and a build-timestamp fallback in the content description.
 
 The update period is 300 seconds, which is the minimum regular update interval

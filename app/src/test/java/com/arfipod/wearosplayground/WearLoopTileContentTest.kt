@@ -13,21 +13,21 @@ class WearLoopTileContentTest {
     fun tileUsesCachedHeadlineForSelectedPlace() {
         val snapshot = snapshot(
             item(
-                place = MadridTransitPlace.HOME,
+                place = MadridTransitPlace.PROFILE_1,
                 optionLabel = "Daroca E3",
                 routeLabel = "E3",
                 timeLabel = "4m",
             )
         )
 
-        assertEquals("Casa · Madrid", WearLoopTileContent.title(snapshot, MadridTransitPlace.HOME))
+        assertEquals("Perfil 1 · Madrid", WearLoopTileContent.title(snapshot, MadridTransitPlace.PROFILE_1))
         assertEquals("E3 4m", WearLoopTileContent.body(snapshot))
         assertEquals("Daroca E3 · 08:15", WearLoopTileContent.footer(snapshot))
     }
 
     @Test
     fun tileFallbackTextStaysUsefulWithoutCache() {
-        assertEquals("Trabajo · Madrid", WearLoopTileContent.title(null, MadridTransitPlace.WORK))
+        assertEquals("Perfil 2 · Madrid", WearLoopTileContent.title(null, MadridTransitPlace.PROFILE_2))
         assertEquals("Sin datos", WearLoopTileContent.body(null))
         assertEquals("Abre la app y toca ↻", WearLoopTileContent.footer(null))
     }

@@ -17,17 +17,20 @@ enum class MadridTransitPlace(
     val id: String,
     val label: String,
     val shortLabel: String,
+    val legacyIds: Set<String> = emptySet(),
 ) {
-    HOME(id = "home", label = "Casa", shortLabel = "Casa"),
-    WORK(id = "work", label = "Trabajo", shortLabel = "Trabajo"),
-    MARIA(id = "maria", label = "María", shortLabel = "María"),
+    PROFILE_1(id = "profile_1", label = "Perfil 1", shortLabel = "P1", legacyIds = setOf("home")),
+    PROFILE_2(id = "profile_2", label = "Perfil 2", shortLabel = "P2", legacyIds = setOf("work")),
+    PROFILE_3(id = "profile_3", label = "Perfil 3", shortLabel = "P3", legacyIds = setOf("maria")),
     ;
 
     companion object {
-        val DEFAULT: MadridTransitPlace = HOME
+        val DEFAULT: MadridTransitPlace = PROFILE_1
         val selectable: List<MadridTransitPlace> = entries.toList()
 
-        fun fromId(id: String?): MadridTransitPlace? = entries.firstOrNull { place -> place.id == id }
+        fun fromId(id: String?): MadridTransitPlace? = entries.firstOrNull { place ->
+            place.id == id || id in place.legacyIds
+        }
     }
 }
 
@@ -56,15 +59,28 @@ data class MadridTransitFavorite(
     val option: MadridTransitOption,
     val count: Int,
     val place: MadridTransitPlace = MadridTransitPlace.DEFAULT,
+    val proximityTriggerMeters: Int? = null,
 ) {
     val clampedCount: Int
         get() = MadridTransitCounts.clamp(count)
+
+    val normalizedProximityTriggerMeters: Int?
+        get() = MadridTransitProximity.normalize(proximityTriggerMeters)
 
     fun withCount(nextCount: Int): MadridTransitFavorite = copy(
         count = MadridTransitCounts.clamp(nextCount),
     )
 
     fun withPlace(nextPlace: MadridTransitPlace): MadridTransitFavorite = copy(place = nextPlace)
+
+    fun withNextProximityTrigger(): MadridTransitFavorite = copy(
+        proximityTriggerMeters = MadridTransitProximity.next(normalizedProximityTriggerMeters),
+    )
+
+    fun isWithinProximityTrigger(distanceMeters: Int?): Boolean {
+        val triggerMeters = normalizedProximityTriggerMeters ?: return true
+        return distanceMeters != null && distanceMeters <= triggerMeters
+    }
 }
 
 object MadridTransitCounts {
@@ -73,6 +89,29 @@ object MadridTransitCounts {
     const val MAX = 4
 
     fun clamp(count: Int): Int = count.coerceIn(MIN, MAX)
+}
+
+object MadridTransitProximity {
+    val RADIUS_OPTIONS_METERS: List<Int?> = listOf(null, 500, 1000, 2000)
+
+    fun normalize(meters: Int?): Int? = meters?.takeIf { value ->
+        RADIUS_OPTIONS_METERS.filterNotNull().contains(value)
+    }
+
+    fun next(currentMeters: Int?): Int? {
+        val currentIndex = RADIUS_OPTIONS_METERS.indexOf(normalize(currentMeters))
+            .takeIf { index -> index >= 0 }
+            ?: 0
+        return RADIUS_OPTIONS_METERS[(currentIndex + 1) % RADIUS_OPTIONS_METERS.size]
+    }
+
+    fun label(meters: Int?): String = when (meters) {
+        null -> "Manual"
+        500 -> "Auto 500m"
+        1000 -> "Auto 1km"
+        2000 -> "Auto 2km"
+        else -> "Manual"
+    }
 }
 
 object MadridTransitCatalog {
@@ -163,8 +202,8 @@ object MadridTransitCatalog {
     val allOptions: List<MadridTransitOption> = metroOptions + busOptions
 
     val defaultFavorites: List<MadridTransitFavorite> = listOfNotNull(
-        favoriteFor("metro_l4_arguelles_pinar", place = MadridTransitPlace.HOME),
-        favoriteFor("bus_e3_daroca_valderrivas", place = MadridTransitPlace.HOME),
+        favoriteFor("metro_l4_arguelles_pinar", place = MadridTransitPlace.PROFILE_1),
+        favoriteFor("bus_e3_daroca_valderrivas", place = MadridTransitPlace.PROFILE_1),
     )
 
     fun optionById(id: String): MadridTransitOption? = allOptions.firstOrNull { it.id == id }
@@ -173,11 +212,13 @@ object MadridTransitCatalog {
         optionId: String,
         count: Int = MadridTransitCounts.DEFAULT,
         place: MadridTransitPlace = MadridTransitPlace.DEFAULT,
+        proximityTriggerMeters: Int? = null,
     ): MadridTransitFavorite? = optionById(optionId)?.let { option ->
         MadridTransitFavorite(
             option = option,
             count = MadridTransitCounts.clamp(count),
             place = place,
+            proximityTriggerMeters = MadridTransitProximity.normalize(proximityTriggerMeters),
         )
     }
 

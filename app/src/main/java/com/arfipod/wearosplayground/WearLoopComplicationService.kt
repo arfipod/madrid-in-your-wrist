@@ -38,7 +38,7 @@ class WearLoopComplicationService : SuspendingComplicationDataSourceService() {
                         MadridTransitSnapshotItem(
                             optionId = "preview",
                             kind = MadridTransitKind.BUS,
-                            place = MadridTransitPlace.HOME,
+                            place = MadridTransitPlace.PROFILE_1,
                             optionLabel = "Daroca E3",
                             detail = "Valderrivas",
                             routeLabel = "E3",
@@ -48,7 +48,7 @@ class WearLoopComplicationService : SuspendingComplicationDataSourceService() {
                         )
                     ),
                 ),
-                selectedPlace = MadridTransitPlace.HOME,
+                selectedPlace = MadridTransitPlace.PROFILE_1,
                 buildTimestamp = "2026-06-02T00:00:00Z",
             )
         } else {

@@ -50,12 +50,14 @@ import com.arfipod.wearosplayground.transit.MadridTransitKind
 import com.arfipod.wearosplayground.transit.MadridTransitLoadResult
 import com.arfipod.wearosplayground.transit.MadridTransitOption
 import com.arfipod.wearosplayground.transit.MadridTransitPlace
+import com.arfipod.wearosplayground.transit.MadridTransitProximity
 import com.arfipod.wearosplayground.transit.MadridTransitRuntime
 import com.arfipod.wearosplayground.transit.MadridTransitSnapshot
 import com.arfipod.wearosplayground.transit.MadridTransitSnapshotItem
 import com.arfipod.wearosplayground.transit.MadridTransitSnapshotStore
 import com.arfipod.wearosplayground.transit.MadridTransitSnapshots
 import com.arfipod.wearosplayground.transit.MadridTransitStore
+import com.arfipod.wearosplayground.transit.distanceMeters
 import com.arfipod.wearosplayground.transit.madridTransitBusMinuteLabel
 import com.arfipod.wearosplayground.transit.madridTransitMinuteLabel
 import com.arfipod.wearosplayground.transit.madridTransitShortRoute
@@ -90,6 +92,7 @@ fun MadridInYourWristApp(
         val context = LocalContext.current
         val store = remember { MadridTransitStore(context.applicationContext) }
         val snapshotStore = remember { MadridTransitSnapshotStore(context.applicationContext) }
+        val locationProvider = remember { MadridLocationProvider(context.applicationContext) }
         val runtime = remember {
             MadridTransitRuntime(
                 napApiKey = BuildConfig.NAP_API_KEY,
@@ -107,6 +110,7 @@ fun MadridInYourWristApp(
         var refreshCount by remember { mutableIntStateOf(0) }
         var editMode by remember { mutableStateOf(false) }
         var lastSnapshot by remember { mutableStateOf(snapshotStore.loadSnapshot()) }
+        var lastKnownLocation by remember { mutableStateOf<MadridGeoPoint?>(locationProvider.lastKnownLocation()) }
         var uiState by remember { mutableStateOf<TransitUiState>(TransitUiState.Idle) }
 
         fun persist(nextFavorites: List<MadridTransitFavorite>) {
@@ -151,6 +155,18 @@ fun MadridInYourWristApp(
             )
         }
 
+        fun changeProximityTrigger(optionId: String) {
+            persist(
+                favorites.map { favorite ->
+                    if (favorite.option.id == optionId && favorite.place == selectedPlace) {
+                        favorite.withNextProximityTrigger()
+                    } else {
+                        favorite
+                    }
+                }
+            )
+        }
+
         LaunchedEffect(favorites, selectedPlace, refreshCount) {
             val selectedFavorites = favorites.filter { favorite -> favorite.place == selectedPlace }
             val previousSnapshot = snapshotStore.loadSnapshot() ?: lastSnapshot
@@ -168,6 +184,7 @@ fun MadridInYourWristApp(
                 return@LaunchedEffect
             }
 
+            lastKnownLocation = locationProvider.lastKnownLocation()
             uiState = TransitUiState.Loading
             uiState = runCatching {
                 runtime.load(selectedFavorites)
@@ -203,7 +220,7 @@ fun MadridInYourWristApp(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color.Black)
-                .padding(horizontal = 14.dp, vertical = 8.dp),
+                .padding(start = 14.dp, top = 18.dp, end = 14.dp, bottom = 8.dp),
             contentAlignment = Alignment.TopCenter,
         ) {
             when (screen) {
@@ -211,6 +228,7 @@ fun MadridInYourWristApp(
                     selectedPlace = selectedPlace,
                     favorites = favorites,
                     snapshot = lastSnapshot,
+                    lastKnownLocation = lastKnownLocation,
                     uiState = uiState,
                     editMode = editMode,
                     onPlaceSelected = ::selectPlace,
@@ -227,6 +245,7 @@ fun MadridInYourWristApp(
                     onNearby = { screen = MadridTransitScreen.NEARBY },
                     onMinus = { optionId -> changeCount(optionId, -1) },
                     onPlus = { optionId -> changeCount(optionId, 1) },
+                    onToggleProximity = ::changeProximityTrigger,
                     onRemove = ::removeOption,
                 )
                 MadridTransitScreen.ADD_METRO -> MadridTransitPicker(
@@ -248,6 +267,8 @@ fun MadridInYourWristApp(
                 MadridTransitScreen.NEARBY -> MadridNearbyScreen(
                     place = selectedPlace,
                     favorites = favorites,
+                    initialLocation = lastKnownLocation,
+                    onLocationChanged = { location -> lastKnownLocation = location },
                     onAdd = ::addOption,
                     onBack = { screen = MadridTransitScreen.HOME },
                 )
@@ -261,6 +282,7 @@ private fun MadridTransitHome(
     selectedPlace: MadridTransitPlace,
     favorites: List<MadridTransitFavorite>,
     snapshot: MadridTransitSnapshot?,
+    lastKnownLocation: MadridGeoPoint?,
     uiState: TransitUiState,
     editMode: Boolean,
     onPlaceSelected: (MadridTransitPlace) -> Unit,
@@ -271,6 +293,7 @@ private fun MadridTransitHome(
     onNearby: () -> Unit,
     onMinus: (String) -> Unit,
     onPlus: (String) -> Unit,
+    onToggleProximity: (String) -> Unit,
     onRemove: (String) -> Unit,
 ) {
     val visibleFavorites = favorites.filter { favorite -> favorite.place == selectedPlace }
@@ -340,10 +363,12 @@ private fun MadridTransitHome(
                     favorite = favorite,
                     result = result,
                     snapshotItem = snapshotItem,
+                    distanceMeters = favorite.distanceFrom(lastKnownLocation),
                     isLoading = uiState is TransitUiState.Loading,
                     editMode = editMode,
                     onMinus = onMinus,
                     onPlus = onPlus,
+                    onToggleProximity = onToggleProximity,
                     onRemove = onRemove,
                 )
             }
@@ -595,12 +620,14 @@ private fun MadridTransitPicker(
 private fun MadridNearbyScreen(
     place: MadridTransitPlace,
     favorites: List<MadridTransitFavorite>,
+    initialLocation: MadridGeoPoint?,
+    onLocationChanged: (MadridGeoPoint?) -> Unit,
     onAdd: (MadridTransitOption) -> Unit,
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current
     val locationProvider = remember { MadridLocationProvider(context.applicationContext) }
-    var location by remember { mutableStateOf<MadridGeoPoint?>(locationProvider.lastKnownLocation()) }
+    var location by remember { mutableStateOf(initialLocation ?: locationProvider.lastKnownLocation()) }
     var status by remember {
         mutableStateOf(if (location == null) "Sin ubicación" else "Paradas cercanas")
     }
@@ -609,6 +636,7 @@ private fun MadridNearbyScreen(
     ) { permissions ->
         val granted = permissions.values.any { granted -> granted }
         location = if (granted) locationProvider.lastKnownLocation() else null
+        onLocationChanged(location)
         status = if (location == null) "Sin ubicación" else "Paradas cercanas"
     }
     val selectedIds = favorites
@@ -633,6 +661,7 @@ private fun MadridNearbyScreen(
             onClick = {
                 if (locationProvider.hasLocationPermission()) {
                     location = locationProvider.lastKnownLocation()
+                    onLocationChanged(location)
                     status = if (location == null) "Sin ubicación" else "Paradas cercanas"
                 } else {
                     launcher.launch(
@@ -670,10 +699,12 @@ private fun TransitFavoriteBlock(
     favorite: MadridTransitFavorite,
     result: MadridTransitLoadResult?,
     snapshotItem: MadridTransitSnapshotItem?,
+    distanceMeters: Int?,
     isLoading: Boolean,
     editMode: Boolean,
     onMinus: (String) -> Unit,
     onPlus: (String) -> Unit,
+    onToggleProximity: (String) -> Unit,
     onRemove: (String) -> Unit,
 ) {
     val accent = favorite.option.kind.accentColor()
@@ -715,12 +746,29 @@ private fun TransitFavoriteBlock(
         }
         Text(
             modifier = Modifier.fillMaxWidth(),
-            text = favorite.option.detail,
+            text = listOfNotNull(
+                favorite.option.detail,
+                distanceMeters?.let { meters -> formatDistance(meters) },
+            ).joinToString(" | "),
             color = Color(0xFFC7C7C7),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp, lineHeight = 11.sp),
         )
+        favorite.proximityStatusLine(distanceMeters)?.let { statusLine ->
+            Text(
+                modifier = Modifier.fillMaxWidth(),
+                text = statusLine,
+                color = if (favorite.isWithinProximityTrigger(distanceMeters)) {
+                    Color(0xFF9CCC65)
+                } else {
+                    Color(0xFFC7C7C7)
+                },
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp, lineHeight = 11.sp),
+            )
+        }
         ResultLines(
             lines = if (isLoading) listOf("Actualizando...") else result.displayLines(fallback = snapshotItem),
             color = if (result is MadridTransitLoadResult.MissingConfig ||
@@ -756,6 +804,16 @@ private fun TransitFavoriteBlock(
                 )
                 SmallActionButton(
                     modifier = Modifier.weight(1f),
+                    label = favorite.proximityButtonLabel(),
+                    onClick = { onToggleProximity(favorite.option.id) },
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(5.dp),
+            ) {
+                SmallActionButton(
+                    modifier = Modifier.fillMaxWidth(),
                     label = "DEL",
                     onClick = { onRemove(favorite.option.id) },
                 )
@@ -974,11 +1032,32 @@ private fun MadridTransitKind.accentColor(): Color = when (this) {
 }
 
 private fun MadridTransitPlace.selectorLabel(isSelected: Boolean): String {
-    val compactLabel = when (this) {
-        MadridTransitPlace.WORK -> "Trab"
-        else -> shortLabel
+    return if (isSelected) shortLabel.uppercase(Locale.ROOT) else shortLabel
+}
+
+private fun MadridTransitFavorite.distanceFrom(location: MadridGeoPoint?): Int? {
+    val optionLocation = option.location ?: return null
+    return location?.let { point -> distanceMeters(from = point, to = optionLocation) }
+}
+
+private fun MadridTransitFavorite.proximityButtonLabel(): String {
+    return when (normalizedProximityTriggerMeters) {
+        null -> "AUTO"
+        500 -> "500m"
+        1000 -> "1km"
+        2000 -> "2km"
+        else -> "AUTO"
     }
-    return if (isSelected) compactLabel.uppercase(Locale.ROOT) else compactLabel
+}
+
+private fun MadridTransitFavorite.proximityStatusLine(distanceMeters: Int?): String? {
+    val triggerMeters = normalizedProximityTriggerMeters ?: return null
+    val triggerLabel = MadridTransitProximity.label(triggerMeters)
+    return when {
+        distanceMeters == null -> "$triggerLabel · esperando ubicación"
+        distanceMeters <= triggerMeters -> "$triggerLabel · activo a ${formatDistance(distanceMeters)}"
+        else -> "$triggerLabel · a ${formatDistance(distanceMeters)}"
+    }
 }
 
 private fun formatDistance(meters: Int): String {

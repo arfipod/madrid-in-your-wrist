@@ -283,7 +283,7 @@ transit refreshes complete or fail.
 
 The app registers `WearLoopTileService` as a Wear OS tile provider. It renders a
 small ProtoLayout Material 3 tile backed by the last cached Madrid transit
-snapshot for the selected context. The Activity performs Metro/EMT refreshes;
+snapshot for the selected profile. The Activity performs Metro/EMT refreshes;
 the tile only reads the snapshot so tile rendering stays deterministic and
 network-free.
 

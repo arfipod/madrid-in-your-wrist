@@ -14,13 +14,13 @@ class MadridTransitSnapshotTest {
         val metroFavorite = requireNotNull(
             MadridTransitCatalog.favoriteFor(
                 optionId = "metro_l4_arguelles_pinar",
-                place = MadridTransitPlace.HOME,
+                place = MadridTransitPlace.PROFILE_1,
             )
         )
         val busFavorite = requireNotNull(
             MadridTransitCatalog.favoriteFor(
                 optionId = "bus_e3_daroca_valderrivas",
-                place = MadridTransitPlace.HOME,
+                place = MadridTransitPlace.PROFILE_1,
             )
         )
         val snapshot = MadridTransitSnapshots.fromResults(
@@ -68,7 +68,7 @@ class MadridTransitSnapshotTest {
                 MadridTransitSnapshotItem(
                     optionId = "metro_l4_arguelles_pinar",
                     kind = MadridTransitKind.METRO,
-                    place = MadridTransitPlace.MARIA,
+                    place = MadridTransitPlace.PROFILE_3,
                     optionLabel = "Argüelles L4",
                     detail = "Pinar de Chamartín",
                     routeLabel = "L4",
@@ -89,16 +89,16 @@ class MadridTransitSnapshotTest {
         val previous = MadridTransitSnapshot(
             updatedAt = "08:00",
             items = listOf(
-                item(place = MadridTransitPlace.HOME, optionId = "home", rankMinutes = 2),
-                item(place = MadridTransitPlace.WORK, optionId = "work", rankMinutes = 4),
+                item(place = MadridTransitPlace.PROFILE_1, optionId = "home", rankMinutes = 2),
+                item(place = MadridTransitPlace.PROFILE_2, optionId = "work", rankMinutes = 4),
             ),
         )
 
         val merged = MadridTransitSnapshots.mergePlace(
             previous = previous,
-            place = MadridTransitPlace.HOME,
+            place = MadridTransitPlace.PROFILE_1,
             updatedAt = "08:15",
-            replacementItems = listOf(item(place = MadridTransitPlace.HOME, optionId = "new_home", rankMinutes = 1)),
+            replacementItems = listOf(item(place = MadridTransitPlace.PROFILE_1, optionId = "new_home", rankMinutes = 1)),
         )
 
         assertEquals("08:15", merged.updatedAt)

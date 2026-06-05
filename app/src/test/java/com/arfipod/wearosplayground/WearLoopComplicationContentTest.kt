@@ -15,7 +15,7 @@ class WearLoopComplicationContentTest {
 
         assertEquals("E3 4m", WearLoopComplicationContent.text(snapshot))
         assertTrue(WearLoopComplicationContent.text(snapshot).length <= 7)
-        assertEquals("Casa", WearLoopComplicationContent.title(snapshot, MadridTransitPlace.HOME))
+        assertEquals("P1", WearLoopComplicationContent.title(snapshot, MadridTransitPlace.PROFILE_1))
     }
 
     @Test
@@ -29,7 +29,7 @@ class WearLoopComplicationContentTest {
     @Test
     fun complicationFallbackTextIsShort() {
         assertEquals("MAD", WearLoopComplicationContent.text(null))
-        assertEquals("Trabajo", WearLoopComplicationContent.title(null, MadridTransitPlace.WORK))
+        assertEquals("P2", WearLoopComplicationContent.title(null, MadridTransitPlace.PROFILE_2))
         assertTrue(WearLoopComplicationContent.text(null).length <= 7)
     }
 
@@ -60,7 +60,7 @@ class WearLoopComplicationContentTest {
             MadridTransitSnapshotItem(
                 optionId = "bus_e3_daroca_valderrivas",
                 kind = MadridTransitKind.BUS,
-                place = MadridTransitPlace.HOME,
+                place = MadridTransitPlace.PROFILE_1,
                 optionLabel = "Daroca E3",
                 detail = "Valderrivas",
                 routeLabel = "E3",
