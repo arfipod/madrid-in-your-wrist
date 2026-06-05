@@ -43,6 +43,7 @@ import com.arfipod.wearosplayground.examples.EmtMadridCredentials
 import com.arfipod.wearosplayground.examples.MetroDeparture
 import com.arfipod.wearosplayground.transit.MadridGeoPoint
 import com.arfipod.wearosplayground.transit.MadridLocationProvider
+import com.arfipod.wearosplayground.transit.MadridNetworkProvider
 import com.arfipod.wearosplayground.transit.MadridTransitCatalog
 import com.arfipod.wearosplayground.transit.MadridTransitCounts
 import com.arfipod.wearosplayground.transit.MadridTransitFavorite
@@ -61,6 +62,7 @@ import com.arfipod.wearosplayground.transit.distanceMeters
 import com.arfipod.wearosplayground.transit.madridTransitBusMinuteLabel
 import com.arfipod.wearosplayground.transit.madridTransitMinuteLabel
 import com.arfipod.wearosplayground.transit.madridTransitShortRoute
+import com.arfipod.wearosplayground.transit.refreshedOptionId
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -80,6 +82,11 @@ private sealed interface TransitUiState {
         val updatedAt: String,
     ) : TransitUiState
 
+    data class Cached(
+        val updatedAt: String,
+        val reason: String,
+    ) : TransitUiState
+
     data class Failed(val message: String) : TransitUiState
 }
 
@@ -93,6 +100,7 @@ fun MadridInYourWristApp(
         val store = remember { MadridTransitStore(context.applicationContext) }
         val snapshotStore = remember { MadridTransitSnapshotStore(context.applicationContext) }
         val locationProvider = remember { MadridLocationProvider(context.applicationContext) }
+        val networkProvider = remember { MadridNetworkProvider(context.applicationContext) }
         val runtime = remember {
             MadridTransitRuntime(
                 napApiKey = BuildConfig.NAP_API_KEY,
@@ -169,7 +177,14 @@ fun MadridInYourWristApp(
 
         LaunchedEffect(favorites, selectedPlace, refreshCount) {
             val selectedFavorites = favorites.filter { favorite -> favorite.place == selectedPlace }
+            val selectedFavoriteIds = selectedFavorites.map { favorite -> favorite.option.id }.toSet()
             val previousSnapshot = snapshotStore.loadSnapshot() ?: lastSnapshot
+            fun hasSelectedCache(snapshot: MadridTransitSnapshot?): Boolean {
+                return snapshot?.items.orEmpty().any { item ->
+                    item.place == selectedPlace && item.optionId in selectedFavoriteIds
+                }
+            }
+
             if (selectedFavorites.isEmpty()) {
                 val updatedAt = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"))
                 val mergedSnapshot = MadridTransitSnapshots.mergePlace(
@@ -185,33 +200,73 @@ fun MadridInYourWristApp(
             }
 
             lastKnownLocation = locationProvider.lastKnownLocation()
+            if (!networkProvider.hasInternet()) {
+                lastSnapshot = previousSnapshot
+                uiState = if (hasSelectedCache(previousSnapshot)) {
+                    onEvent("Madrid transit offline: using cached ${selectedPlace.label} snapshot")
+                    TransitUiState.Cached(
+                        updatedAt = previousSnapshot?.updatedAt.orEmpty(),
+                        reason = "Sin conexión",
+                    )
+                } else {
+                    onEvent("Madrid transit offline: no cached ${selectedPlace.label} snapshot")
+                    TransitUiState.Failed("Sin conexión y sin datos guardados")
+                }
+                return@LaunchedEffect
+            }
+
             uiState = TransitUiState.Loading
             uiState = runCatching {
                 runtime.load(selectedFavorites)
             }.fold(
                 onSuccess = { results ->
                     val updatedAt = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"))
+                    val refreshedOptionIds = results.mapNotNull { result -> result.refreshedOptionId() }.toSet()
                     val selectedSnapshot = MadridTransitSnapshots.fromResults(
                         results = results,
                         updatedAt = updatedAt,
                     )
-                    val mergedSnapshot = MadridTransitSnapshots.mergePlace(
+                    val mergedSnapshot = MadridTransitSnapshots.mergeRefresh(
                         previous = snapshotStore.loadSnapshot() ?: lastSnapshot,
                         place = selectedPlace,
                         updatedAt = updatedAt,
+                        refreshedOptionIds = refreshedOptionIds,
                         replacementItems = selectedSnapshot.items,
                     )
-                    lastSnapshot = mergedSnapshot.takeIf { snapshot -> snapshot.items.isNotEmpty() }
-                    snapshotStore.saveSnapshot(mergedSnapshot)
-                    onEvent("Madrid transit refreshed: ${results.size} ${selectedPlace.label} favorites")
-                    TransitUiState.Loaded(
-                        results = results,
-                        updatedAt = updatedAt,
-                    )
+                    if (refreshedOptionIds.isNotEmpty()) {
+                        lastSnapshot = mergedSnapshot.takeIf { snapshot -> snapshot.items.isNotEmpty() }
+                        snapshotStore.saveSnapshot(mergedSnapshot)
+                        onEvent("Madrid transit refreshed: ${results.size} ${selectedPlace.label} favorites")
+                        TransitUiState.Loaded(
+                            results = results,
+                            updatedAt = updatedAt,
+                        )
+                    } else if (hasSelectedCache(mergedSnapshot)) {
+                        lastSnapshot = mergedSnapshot
+                        onEvent("Madrid transit refresh used cached ${selectedPlace.label} snapshot")
+                        TransitUiState.Cached(
+                            updatedAt = mergedSnapshot.updatedAt,
+                            reason = "Cache por error",
+                        )
+                    } else {
+                        onEvent("Madrid transit refresh returned no live data for ${selectedPlace.label}")
+                        TransitUiState.Loaded(
+                            results = results,
+                            updatedAt = updatedAt,
+                        )
+                    }
                 },
                 onFailure = { error ->
                     onEvent("Madrid transit refresh failed: ${error.message}")
-                    TransitUiState.Failed(error.message ?: "Unknown transport error")
+                    if (hasSelectedCache(previousSnapshot)) {
+                        lastSnapshot = previousSnapshot
+                        TransitUiState.Cached(
+                            updatedAt = previousSnapshot?.updatedAt.orEmpty(),
+                            reason = "Cache por error",
+                        )
+                    } else {
+                        TransitUiState.Failed(error.message ?: "Unknown transport error")
+                    }
                 },
             )
         }
@@ -771,9 +826,7 @@ private fun TransitFavoriteBlock(
         }
         ResultLines(
             lines = if (isLoading) listOf("Actualizando...") else result.displayLines(fallback = snapshotItem),
-            color = if (result is MadridTransitLoadResult.MissingConfig ||
-                result is MadridTransitLoadResult.Failed
-            ) {
+            color = if (result.hasUncachedFailure(fallback = snapshotItem)) {
                 Color(0xFFFF8A80)
             } else {
                 Color.White
@@ -994,6 +1047,7 @@ private fun TransitUiState.headerStatus(): String = when (this) {
     TransitUiState.Idle -> "Listo"
     TransitUiState.Loading -> "Actualizando"
     is TransitUiState.Loaded -> "Actualizado $updatedAt"
+    is TransitUiState.Cached -> "$reason · $updatedAt"
     is TransitUiState.Failed -> "Error al actualizar"
 }
 
@@ -1014,8 +1068,16 @@ private fun MadridTransitLoadResult?.displayLines(fallback: MadridTransitSnapsho
         .take(favorite.clampedCount)
         .map { arrival -> arrival.busLine() }
         .ifEmpty { listOf("Sin buses") }
-    is MadridTransitLoadResult.MissingConfig -> listOf(message)
-    is MadridTransitLoadResult.Failed -> listOf(message)
+    is MadridTransitLoadResult.MissingConfig -> fallback?.cachedLines(message) ?: listOf(message)
+    is MadridTransitLoadResult.Failed -> fallback?.cachedLines(message) ?: listOf(message)
+}
+
+private fun MadridTransitSnapshotItem.cachedLines(reason: String): List<String> {
+    return listOf("${routeLabel} hacia $destination", "Cache · $reason")
+}
+
+private fun MadridTransitLoadResult?.hasUncachedFailure(fallback: MadridTransitSnapshotItem?): Boolean {
+    return fallback == null && (this is MadridTransitLoadResult.MissingConfig || this is MadridTransitLoadResult.Failed)
 }
 
 private fun MetroDeparture.metroLine(): String {

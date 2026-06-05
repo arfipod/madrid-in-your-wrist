@@ -279,6 +279,10 @@ ANDROID_SERIAL=WATCH_IP:ADB_PORT ./scripts/logcat-watch.sh
 The app logs with `WearLoop` when the Activity is created and when Madrid
 transit refreshes complete or fail.
 
+Madrid Wrist should prefer live API data only when validated internet is
+available. When offline, or when a refresh fails, preserve and render the latest
+stored snapshot for the selected profile instead of deleting useful cached data.
+
 ## Tiles baseline
 
 The app registers `WearLoopTileService` as a Wear OS tile provider. It renders a

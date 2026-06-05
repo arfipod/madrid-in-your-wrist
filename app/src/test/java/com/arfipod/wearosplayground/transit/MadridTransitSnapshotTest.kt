@@ -106,6 +106,52 @@ class MadridTransitSnapshotTest {
     }
 
     @Test
+    fun mergeRefreshUpdatesFreshOptionsAndKeepsFailedOptionCache() {
+        val previous = MadridTransitSnapshot(
+            updatedAt = "08:00",
+            items = listOf(
+                item(place = MadridTransitPlace.PROFILE_1, optionId = "fresh", rankMinutes = 8),
+                item(place = MadridTransitPlace.PROFILE_1, optionId = "failed", rankMinutes = 4),
+                item(place = MadridTransitPlace.PROFILE_2, optionId = "other", rankMinutes = 2),
+            ),
+        )
+
+        val merged = MadridTransitSnapshots.mergeRefresh(
+            previous = previous,
+            place = MadridTransitPlace.PROFILE_1,
+            updatedAt = "08:15",
+            refreshedOptionIds = setOf("fresh"),
+            replacementItems = listOf(item(place = MadridTransitPlace.PROFILE_1, optionId = "fresh", rankMinutes = 1)),
+        )
+
+        assertEquals("08:15", merged.updatedAt)
+        assertEquals(listOf("fresh", "failed", "other"), merged.items.map { item -> item.optionId })
+        assertEquals(1, merged.items.first { item -> item.optionId == "fresh" }.rankMinutes)
+        assertEquals(4, merged.items.first { item -> item.optionId == "failed" }.rankMinutes)
+    }
+
+    @Test
+    fun mergeRefreshClearsCacheForFreshOptionWithNoArrivals() {
+        val previous = MadridTransitSnapshot(
+            updatedAt = "08:00",
+            items = listOf(
+                item(place = MadridTransitPlace.PROFILE_1, optionId = "empty_success", rankMinutes = 8),
+                item(place = MadridTransitPlace.PROFILE_1, optionId = "failed", rankMinutes = 4),
+            ),
+        )
+
+        val merged = MadridTransitSnapshots.mergeRefresh(
+            previous = previous,
+            place = MadridTransitPlace.PROFILE_1,
+            updatedAt = "08:15",
+            refreshedOptionIds = setOf("empty_success"),
+            replacementItems = emptyList(),
+        )
+
+        assertEquals(listOf("failed"), merged.items.map { item -> item.optionId })
+    }
+
+    @Test
     fun decoderRejectsBlankAndUnknownVersions() {
         assertNull(MadridTransitSnapshotCodec.decode(null))
         assertNull(MadridTransitSnapshotCodec.decode(""))

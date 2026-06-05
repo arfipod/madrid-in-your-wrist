@@ -23,6 +23,9 @@ The watch app can be operated entirely from Wear OS:
 - Refreshes only the currently selected profile from the watch. Other profiles
   keep their last successful cached snapshot until the user switches to them and
   refreshes.
+- Uses validated internet when available. Without internet, or when an API
+  refresh fails, it falls back to the selected profile's cached snapshot instead
+  of clearing useful data.
 - Requests location permission from the watch and sorts the local catalog by
   nearest options when a last known location is available.
 - Feeds the Wear OS Tile and `SHORT_TEXT` complication from the last cached
@@ -88,6 +91,24 @@ The current watch UI supports three built-in profiles. Stored legacy IDs from
 earlier personal labels are still decoded and migrated to the generic profile
 IDs when favorites are saved again.
 
+## Online And Offline Policy
+
+The Activity is the only surface that talks to Metro/EMT APIs. Before refreshing
+it checks for validated internet:
+
+- Online: call the configured Metro and EMT helpers, then save a fresh snapshot
+  for options that returned live data.
+- Partial online failure: merge fresh results with the previous snapshot. A
+  favorite that refreshed successfully replaces its cached item; a favorite whose
+  API/config failed keeps its cached item if one exists.
+- Online success with no arrivals: clear that favorite's cached item, because the
+  API has explicitly reported no upcoming transport.
+- Offline: skip network calls entirely and show the last cached snapshot for the
+  selected profile. If no cache exists, show a clear no-connection/no-data state.
+
+Tiles and complications always read the stored snapshot and never start network
+work themselves.
+
 ## Glance Surfaces
 
 The Activity is the only surface that refreshes Metro and EMT data. The Tile and
@@ -128,6 +149,7 @@ transit/MadridTransitStore.kt     SharedPreferences favorites/profile persistenc
 transit/MadridTransitSnapshot.kt  Cached next-arrival snapshot for app, Tile, complication
 transit/MadridTransitRuntime.kt   Runtime loading across Metro and bus favorites
 transit/MadridLocationProvider.kt Platform last-known-location helper
+transit/MadridNetworkProvider.kt  Platform validated-internet helper
 WearLoopTileService.kt            ProtoLayout Tile fed by cached selected-profile snapshot
 WearLoopComplicationService.kt    SHORT_TEXT complication fed by cached selected-profile snapshot
 ```

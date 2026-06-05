@@ -93,12 +93,15 @@ Current app features:
 - Lets each favorite opt into a proximity trigger radius (`500m`, `1km`, `2km`)
   for future/conditional distance-based activation.
 - Refreshes only the selected profile for lower latency and less network work.
+- Uses an online/offline policy: validated internet refreshes Metro/EMT APIs;
+  offline or failed API refreshes fall back to the last stored snapshot when one
+  is available.
 - Shows Metro de Madrid scheduled departures through the NAP/GTFS helper.
 - Shows EMT Madrid realtime bus arrivals through the MobilityLabs helper.
 - Sorts the local Metro/bus catalog by nearby location when permission and a
   last known location are available.
 - Persists favorites, counts, selected profile, proximity trigger settings, and
-  the last successful transit snapshot on the watch.
+  the last successful transit snapshot on the watch for offline use.
 - Emits logs with the tag `WearLoop`.
 - Performs short haptic feedback on watch actions.
 - Uses Jetpack Compose for Wear OS for the baseline UI.

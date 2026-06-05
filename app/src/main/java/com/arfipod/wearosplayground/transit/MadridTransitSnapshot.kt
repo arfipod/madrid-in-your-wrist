@@ -81,6 +81,27 @@ object MadridTransitSnapshots {
         )
     }
 
+    fun mergeRefresh(
+        previous: MadridTransitSnapshot?,
+        place: MadridTransitPlace,
+        updatedAt: String,
+        refreshedOptionIds: Set<String>,
+        replacementItems: List<MadridTransitSnapshotItem>,
+    ): MadridTransitSnapshot {
+        if (refreshedOptionIds.isEmpty()) {
+            return previous ?: MadridTransitSnapshot(updatedAt = updatedAt, items = emptyList())
+        }
+
+        return MadridTransitSnapshot(
+            updatedAt = updatedAt,
+            items = sortItems(
+                previous.orEmptyItems().filterNot { item ->
+                    item.place == place && item.optionId in refreshedOptionIds
+                } + replacementItems,
+            ),
+        )
+    }
+
     private fun MadridTransitSnapshot?.orEmptyItems(): List<MadridTransitSnapshotItem> = this?.items.orEmpty()
 
     private fun sortItems(items: List<MadridTransitSnapshotItem>): List<MadridTransitSnapshotItem> {
@@ -173,6 +194,13 @@ internal fun MadridTransitLoadResult.toSnapshotItem(): MadridTransitSnapshotItem
         )
     }
 
+    is MadridTransitLoadResult.MissingConfig -> null
+    is MadridTransitLoadResult.Failed -> null
+}
+
+internal fun MadridTransitLoadResult.refreshedOptionId(): String? = when (this) {
+    is MadridTransitLoadResult.Metro -> favorite.option.id
+    is MadridTransitLoadResult.Bus -> favorite.option.id
     is MadridTransitLoadResult.MissingConfig -> null
     is MadridTransitLoadResult.Failed -> null
 }
