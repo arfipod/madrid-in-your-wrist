@@ -37,7 +37,22 @@ data class MetroDeparture(
     fun compactLabel(): String {
         val time = departureTime.toLocalTime().format(DateTimeFormatter.ofPattern("HH:mm"))
         val prefix = if (minutesUntil <= 0) "Now" else "${minutesUntil} min"
-        return "$prefix | $time\n$routeName -> $destination"
+        val shortRouteName = routeName.substringBefore(" ")
+        return "$prefix | $time\nL$shortRouteName -> $destination"
+    }
+}
+
+data class MetroScheduleResult(
+    val departure: MetroDeparture?,
+    val isStale: Boolean,
+    val validUntil: LocalDate?,
+) {
+    fun compactLabel(): String {
+        val departureLabel = departure?.compactLabel() ?: "No scheduled train"
+        if (!isStale) return departureLabel
+
+        val validText = validUntil?.format(DateTimeFormatter.ISO_LOCAL_DATE) ?: "expired feed"
+        return "GTFS $validText\n$departureLabel"
     }
 }
 
@@ -176,13 +191,48 @@ object GtfsCsv {
 class MetroGtfsSchedule(
     private val zoneId: ZoneId = ZoneId.of("Europe/Madrid"),
 ) {
+    fun nextDepartureResult(
+        gtfsZipBytes: ByteArray,
+        target: MetroScheduleTarget = MetroScheduleTarget(),
+        now: LocalDateTime = LocalDateTime.now(zoneId),
+    ): MetroScheduleResult {
+        val feed = GtfsFeed.fromZip(gtfsZipBytes)
+        val strictDeparture = feed.nextDeparture(
+            target = target,
+            now = now,
+            ignoreCalendarDateRange = false,
+        )
+        if (strictDeparture != null) {
+            return MetroScheduleResult(
+                departure = strictDeparture,
+                isStale = false,
+                validUntil = feed.validUntil(),
+            )
+        }
+
+        val fallbackDeparture = feed.nextDeparture(
+            target = target,
+            now = now,
+            ignoreCalendarDateRange = true,
+        )
+        return MetroScheduleResult(
+            departure = fallbackDeparture,
+            isStale = fallbackDeparture != null,
+            validUntil = feed.validUntil(),
+        )
+    }
+
     fun nextDeparture(
         gtfsZipBytes: ByteArray,
         target: MetroScheduleTarget = MetroScheduleTarget(),
         now: LocalDateTime = LocalDateTime.now(zoneId),
     ): MetroDeparture? {
         val feed = GtfsFeed.fromZip(gtfsZipBytes)
-        return feed.nextDeparture(target = target, now = now)
+        return feed.nextDeparture(
+            target = target,
+            now = now,
+            ignoreCalendarDateRange = false,
+        )
     }
 }
 
@@ -198,6 +248,7 @@ private data class GtfsFeed(
     fun nextDeparture(
         target: MetroScheduleTarget,
         now: LocalDateTime,
+        ignoreCalendarDateRange: Boolean,
     ): MetroDeparture? {
         val targetStopIds = stops
             .filter { row ->
@@ -213,18 +264,31 @@ private data class GtfsFeed(
                     targetStopIds = targetStopIds,
                     serviceDate = now.toLocalDate().plusDays(dayOffset),
                     now = now,
+                    ignoreCalendarDateRange = ignoreCalendarDateRange,
                 )
             }
             .minByOrNull { it.departureTime }
     }
+
+    fun validUntil(): LocalDate? = calendar
+        .mapNotNull { row ->
+            runCatching {
+                LocalDate.parse(row["end_date"].orEmpty(), DateTimeFormatter.BASIC_ISO_DATE)
+            }.getOrNull()
+        }
+        .maxOrNull()
 
     private fun departuresForDate(
         target: MetroScheduleTarget,
         targetStopIds: Map<String, Map<String, String>>,
         serviceDate: LocalDate,
         now: LocalDateTime,
+        ignoreCalendarDateRange: Boolean,
     ): Sequence<MetroDeparture> {
-        val activeServices = activeServices(serviceDate)
+        val activeServices = activeServices(
+            date = serviceDate,
+            ignoreCalendarDateRange = ignoreCalendarDateRange,
+        )
         if (activeServices.isEmpty()) return emptySequence()
         val serviceStart = serviceDate.atStartOfDay()
 
@@ -337,7 +401,10 @@ private data class GtfsFeed(
         )
     }
 
-    private fun activeServices(date: LocalDate): Set<String> {
+    private fun activeServices(
+        date: LocalDate,
+        ignoreCalendarDateRange: Boolean,
+    ): Set<String> {
         val dayField = when (date.dayOfWeek) {
             java.time.DayOfWeek.MONDAY -> "monday"
             java.time.DayOfWeek.TUESDAY -> "tuesday"
@@ -351,8 +418,13 @@ private data class GtfsFeed(
         val active = calendar
             .filter { row ->
                 row[dayField] == "1" &&
-                    gtfsDate >= row["start_date"].orEmpty() &&
-                    gtfsDate <= row["end_date"].orEmpty()
+                    (
+                        ignoreCalendarDateRange ||
+                            (
+                                gtfsDate >= row["start_date"].orEmpty() &&
+                                    gtfsDate <= row["end_date"].orEmpty()
+                                )
+                        )
             }
             .mapNotNullTo(mutableSetOf()) { it["service_id"] }
 

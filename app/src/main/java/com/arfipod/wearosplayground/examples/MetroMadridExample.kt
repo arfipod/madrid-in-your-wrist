@@ -19,7 +19,7 @@ import com.arfipod.wearosplayground.BuildConfig
 private sealed interface MetroUiState {
     data object MissingKey : MetroUiState
     data object Loading : MetroUiState
-    data class Loaded(val departure: MetroDeparture) : MetroUiState
+    data class Loaded(val result: MetroScheduleResult) : MetroUiState
     data object NoDeparture : MetroUiState
     data class Failed(val message: String) : MetroUiState
 }
@@ -48,14 +48,14 @@ fun MetroMadridExample(
         state = MetroUiState.Loading
         state = runCatching {
             val zipBytes = client.fetchMetroGtfsZip()
-            schedule.nextDeparture(gtfsZipBytes = zipBytes, target = target)
+            schedule.nextDepartureResult(gtfsZipBytes = zipBytes, target = target)
         }
-            .onSuccess { departure ->
+            .onSuccess { result ->
                 onEvent(
-                    if (departure == null) {
+                    if (result.departure == null) {
                         "Metro Madrid example found no departure"
                     } else {
-                        "Metro Madrid next departure ${departure.minutesUntil} min"
+                        "Metro Madrid next departure ${result.departure.minutesUntil} min"
                     }
                 )
             }
@@ -63,8 +63,8 @@ fun MetroMadridExample(
                 onEvent("Metro Madrid example failed: ${error.message}")
             }
             .fold(
-                onSuccess = { departure ->
-                    if (departure == null) MetroUiState.NoDeparture else MetroUiState.Loaded(departure)
+                onSuccess = { result ->
+                    if (result.departure == null) MetroUiState.NoDeparture else MetroUiState.Loaded(result)
                 },
                 onFailure = { MetroUiState.Failed(it.message ?: "Unknown NAP error") },
             )
@@ -108,7 +108,7 @@ fun MetroMadridExample(
 private fun MetroUiState.label(): String = when (this) {
     MetroUiState.MissingKey -> "Set NAP_API_KEY"
     MetroUiState.Loading -> "Reading NAP..."
-    is MetroUiState.Loaded -> departure.compactLabel()
+    is MetroUiState.Loaded -> result.compactLabel()
     MetroUiState.NoDeparture -> "No scheduled train"
     is MetroUiState.Failed -> message
 }

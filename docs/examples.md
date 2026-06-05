@@ -62,6 +62,9 @@ watch. The app manifest includes `android.permission.INTERNET` for this example.
 `MetroMadridExample.kt` uses the NAP API key exposed as `BuildConfig.NAP_API_KEY`
 to download the Metro de Madrid GTFS-ZIP dataset and calculate the next scheduled
 Line 4 departure from `Argüelles` toward `Pinar de Chamartín`.
+If NAP serves an expired Metro GTFS feed, the screen labels the result with the
+last GTFS date and shows the matching weekday timetable as last-known schedule
+data.
 
 Configure the key at build time:
 

@@ -1,12 +1,14 @@
 package com.arfipod.wearosplayground.examples
 
 import java.io.ByteArrayOutputStream
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class NapMetroScheduleTest {
@@ -67,6 +69,20 @@ class NapMetroScheduleTest {
         assertEquals("4 Argüelles-Pinar de Chamartín", departure.routeName)
         assertEquals("Pinar de Chamartín", departure.destination)
         assertEquals(2, departure.minutesUntil)
+    }
+
+    @Test
+    fun nextDepartureResultFallsBackToExpiredWeekdayPattern() {
+        val schedule = MetroGtfsSchedule()
+        val result = schedule.nextDepartureResult(
+            gtfsZipBytes = metroFrequencyFixtureZip(),
+            now = LocalDateTime.of(2027, 6, 4, 10, 1, 0),
+        )
+
+        assertTrue(result.isStale)
+        assertEquals(LocalDate.of(2026, 12, 31), result.validUntil)
+        assertNotNull(result.departure)
+        assertEquals("Pinar de Chamartín", result.departure!!.destination)
     }
 
     @Test
