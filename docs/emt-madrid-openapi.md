@@ -29,6 +29,20 @@ from its local catalog.
 Do not commit EMT credentials. Build with the app credentials from MobilityLabs:
 
 ```bash
+cat >> .env <<'EOF'
+EMT_CLIENT_ID=YOUR_CLIENT_ID
+EMT_PASS_KEY=YOUR_PASS_KEY
+EMT_EMAIL=YOUR_EMAIL
+EMT_PASSWORD=YOUR_PASSWORD
+EOF
+source ./scripts/common.sh
+./gradlew --no-daemon :app:assembleDebug
+```
+
+The helper scripts automatically load `.env`, including Docker builds. You can
+also provide credentials for a single build:
+
+```bash
 EMT_CLIENT_ID=YOUR_CLIENT_ID EMT_PASS_KEY=YOUR_PASS_KEY \
   ./gradlew --no-daemon :app:assembleDebug
 ```

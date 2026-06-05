@@ -133,6 +133,18 @@ Check the host environment first:
 ./scripts/doctor.sh
 ```
 
+Optional transit credentials can live in a local `.env` file at the repository
+root. The helper scripts load it automatically and pass these values into local
+and Docker Gradle builds:
+
+```bash
+NAP_API_KEY=YOUR_KEY
+EMT_CLIENT_ID=YOUR_CLIENT_ID
+EMT_PASS_KEY=YOUR_PASS_KEY
+EMT_EMAIL=YOUR_EMAIL
+EMT_PASSWORD=YOUR_PASSWORD
+```
+
 ### 1. Build the Docker image
 
 ```bash

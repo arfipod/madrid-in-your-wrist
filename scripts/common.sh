@@ -7,6 +7,14 @@ MAIN_ACTIVITY="com.arfipod.wearosplayground.MainActivity"
 APK_PATH="$PROJECT_ROOT/app/build/outputs/apk/debug/app-debug.apk"
 ARTIFACTS_DIR="$PROJECT_ROOT/artifacts"
 
+ENV_FILE="$PROJECT_ROOT/.env"
+if [[ -f "$ENV_FILE" ]]; then
+  set -a
+  # shellcheck source=/dev/null
+  source "$ENV_FILE"
+  set +a
+fi
+
 DEFAULT_ANDROID_SDK="$HOME/Android/Sdk"
 if [[ -z "${ANDROID_HOME:-}" && -d "$DEFAULT_ANDROID_SDK" ]]; then
   export ANDROID_HOME="$DEFAULT_ANDROID_SDK"

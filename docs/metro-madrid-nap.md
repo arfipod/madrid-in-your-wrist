@@ -68,6 +68,15 @@ The NAP API instructions say:
 Do not commit NAP API keys. Provide the key at build time:
 
 ```bash
+printf 'NAP_API_KEY=YOUR_KEY\n' >> .env
+source ./scripts/common.sh
+./gradlew --no-daemon :app:assembleDebug
+```
+
+The helper scripts automatically load `.env`, including Docker builds. You can
+also provide the key for a single build:
+
+```bash
 source ./scripts/common.sh
 NAP_API_KEY=YOUR_KEY ./gradlew --no-daemon :app:assembleDebug
 ```

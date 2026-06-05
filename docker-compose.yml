@@ -13,6 +13,11 @@ services:
       - wearos-gradle-cache:/workspace/.gradle-cache
     environment:
       GRADLE_USER_HOME: /workspace/.gradle-cache
+      NAP_API_KEY: ${NAP_API_KEY:-}
+      EMT_CLIENT_ID: ${EMT_CLIENT_ID:-}
+      EMT_PASS_KEY: ${EMT_PASS_KEY:-}
+      EMT_EMAIL: ${EMT_EMAIL:-}
+      EMT_PASSWORD: ${EMT_PASSWORD:-}
 
 volumes:
   wearos-gradle-cache:
