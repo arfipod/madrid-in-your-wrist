@@ -6,8 +6,8 @@ The app includes a compact examples gallery under:
 app/src/main/java/com/arfipod/wearosplayground/examples/
 ```
 
-Open the app and tap one of the example buttons from the home screen, or launch
-an example directly through ADB with the optional `example` intent extra.
+The launcher opens `Madrid Wrist`. Examples remain available as direct developer
+routes through ADB with the optional `example` intent extra.
 
 ```bash
 source ./scripts/common.sh
@@ -32,7 +32,7 @@ video
 
 Captured from the installed debug app on Wear OS targets.
 
-![Wear Loop examples home](images/examples/wear-home.png)
+![Legacy Wear Loop examples home](images/examples/wear-home.png)
 
 ## Included Examples
 
@@ -138,7 +138,8 @@ ANDROID_SERIAL=WATCH_IP:ADB_PORT adb_cmd shell am start \
   --es example emt
 ```
 
-See `docs/emt-madrid-openapi.md` for registration and endpoint notes.
+See `docs/emt-madrid-openapi.md` for registration, build configuration, emulator
+validation, logcat, screenshots, and troubleshooting notes.
 
 ![EMT E3 example](images/examples/wear-emt.png)
 

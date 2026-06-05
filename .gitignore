@@ -3,6 +3,7 @@
 build/
 app/build/
 local.properties
+.env
 artifacts/
 *.iml
 .idea/

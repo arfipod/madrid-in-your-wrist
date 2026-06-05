@@ -1,6 +1,7 @@
-# wearos_playground
+# madrid-in-your-wrist
 
-A minimal, Docker-first Wear OS playground for Pixel Watch 3 / Wear OS 6.1 development.
+A Docker-first Wear OS app for Pixel Watch 3 / Wear OS 6.1 development, now
+centered on the `Madrid Wrist` transport dashboard.
 
 The goal of this repository is not to replace Android Studio. The goal is to create a fast closed loop for AI-assisted development:
 
@@ -45,6 +46,9 @@ wearos_playground/
 - [Engineering handbook](docs/engineering-handbook.md): end-to-end build,
   testing, ADB Wi-Fi, runtime validation, CI, troubleshooting, and change
   guidelines.
+- [Madrid In Your Wrist](docs/madrid-in-your-wrist.md): product behavior,
+  favorites, selectors, nearby sorting, screenshots, catalog seeds, and code
+  map.
 - [Closed-loop workflow](docs/closed-loop-workflow.md): the shortest build,
   install, launch, screenshot, and logcat loops.
 - [Pixel Watch 3 setup](docs/pixel-watch-3-setup.md): pairing and connecting
@@ -69,27 +73,29 @@ wearos_playground/
   agent-driven changes.
 - [Agent guide](AGENTS.md): quick operating rules for coding agents.
 
-## What this initial app does
+## What the app does
 
-The app intentionally stays simple. It validates the end-to-end loop before adding sensors, tiles, complications, Health Services, background workers, or advanced Compose UI.
+The app keeps the fast closed loop from the original playground, but the launcher
+now opens the `Madrid Wrist` transport dashboard.
 
 Current app features:
 
 - Launchable Wear OS Activity.
-- Shows build timestamp.
-- Has a counter button.
+- Manages Metro and EMT bus favorites directly on the watch.
+- Adds Metro stations and bus stops from separate watch pickers.
+- Lets each favorite choose how many upcoming transports to show.
+- Shows Metro de Madrid scheduled departures through the NAP/GTFS helper.
+- Shows EMT Madrid realtime bus arrivals through the MobilityLabs helper.
+- Sorts the local Metro/bus catalog by nearby location when permission and a
+  last known location are available.
+- Persists favorites and counts on the watch.
 - Emits logs with the tag `WearLoop`.
-- Performs short haptic feedback on button press.
+- Performs short haptic feedback on watch actions.
 - Uses Jetpack Compose for Wear OS for the baseline UI.
-- Can log accelerometer samples as a minimal sensor experiment.
 - Provides a minimal Wear OS Tile showing build status.
 - Provides a minimal `SHORT_TEXT` complication data source.
-- Includes an examples gallery for Flappy Bird, API output, 3D rendering, audio,
-  and video playback.
-- Includes a Metro Madrid NAP/GTFS example that can show scheduled departures
-  when built with a valid NAP API key.
-- Includes an EMT Madrid OpenAPI example for the next E3 bus at Felipe II toward
-  Valderrivas when built with valid MobilityLabs credentials.
+- Keeps direct ADB routes for the old examples: Flappy Bird, API output, Metro,
+  EMT, 3D rendering, audio, and video playback.
 
 ## Compose dependency choices
 
@@ -287,6 +293,6 @@ The Android emulator is better managed from Android Studio on Windows. Keep Dock
 
 ## Suggested next milestones
 
-1. Add Health Services experiments.
-2. Expand sensor logging experiments.
-3. Add repeatable feature prompts as the app grows.
+1. Expand the Metro and EMT catalogs beyond the initial curated seed list.
+2. Add manual station/stop search from the watch.
+3. Add an Android phone companion for faster list management.

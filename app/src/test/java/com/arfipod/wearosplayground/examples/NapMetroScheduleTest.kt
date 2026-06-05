@@ -72,6 +72,18 @@ class NapMetroScheduleTest {
     }
 
     @Test
+    fun nextDeparturesReturnsRequestedFrequencyDepartures() {
+        val schedule = MetroGtfsSchedule()
+        val departures = schedule.nextDepartures(
+            gtfsZipBytes = metroFrequencyFixtureZip(),
+            count = 3,
+            now = LocalDateTime.of(2026, 6, 1, 10, 1, 0),
+        )
+
+        assertEquals(listOf(2L, 7L, 12L), departures.map { it.minutesUntil })
+    }
+
+    @Test
     fun nextDepartureResultFallsBackToExpiredWeekdayPattern() {
         val schedule = MetroGtfsSchedule()
         val result = schedule.nextDepartureResult(

@@ -7,8 +7,8 @@ import org.junit.Test
 class WearLoopTileContentTest {
     @Test
     fun tileTextIsStableAndShort() {
-        assertEquals("Wear Loop", WearLoopTileContent.title())
-        assertEquals("Open app for counter and sensors", WearLoopTileContent.footer())
+        assertEquals("Madrid Wrist", WearLoopTileContent.title())
+        assertEquals("Open app for Metro and bus", WearLoopTileContent.footer())
     }
 
     @Test

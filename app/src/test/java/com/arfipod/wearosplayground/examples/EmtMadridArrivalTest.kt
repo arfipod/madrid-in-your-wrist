@@ -48,6 +48,34 @@ class EmtMadridArrivalTest {
     }
 
     @Test
+    fun allArrivalsAreParsedAndSortedForGenericStops() {
+        val arrivals = EmtMadridJson.parseAllArrivals(
+            """
+                {
+                  "data": [
+                    {
+                      "Arrive": [
+                        {
+                          "lineArrive": "E3",
+                          "destination": "VALDERRIVAS",
+                          "estimateArrive": 360
+                        },
+                        {
+                          "lineArrive": "100",
+                          "destination": "MORATALAZ",
+                          "estimateArrive": 120
+                        }
+                      ]
+                    }
+                  ]
+                }
+            """.trimIndent()
+        )
+
+        assertEquals(listOf("100", "E3"), arrivals.map { it.lineId })
+    }
+
+    @Test
     fun currentV2ArriveShapeIsParsed() {
         val arrivals = EmtMadridJson.parseArrivals(
             """
@@ -59,6 +87,13 @@ class EmtMadridArrivalTest {
                           "line": "E3",
                           "stop": "1064",
                           "destination": "VALDERRIVAS",
+                          "geometry": {
+                            "type": "Point",
+                            "coordinates": [
+                              -3.6692320578255995,
+                              40.421145073486166
+                            ]
+                          },
                           "estimateArrive": 225,
                           "DistanceBus": 1696
                         }
@@ -70,6 +105,28 @@ class EmtMadridArrivalTest {
         )
 
         assertEquals("4 min\nE3 -> VALDERRIVAS\n1696 m", arrivals.first().compactLabel())
+    }
+
+    @Test
+    fun nonArrivalObjectsAreIgnored() {
+        val arrivals = EmtMadridJson.parseArrivals(
+            """
+                {
+                  "StopInfo": [
+                    {
+                      "lines": [
+                        {
+                          "line": "014",
+                          "label": "14"
+                        }
+                      ]
+                    }
+                  ]
+                }
+            """.trimIndent()
+        )
+
+        assertEquals(0, arrivals.size)
     }
 
     @Test

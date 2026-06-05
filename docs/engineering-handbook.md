@@ -276,8 +276,8 @@ Logcat focus:
 ANDROID_SERIAL=WATCH_IP:ADB_PORT ./scripts/logcat-watch.sh
 ```
 
-The app logs with `WearLoop` when the Activity is created and when the counter
-is incremented.
+The app logs with `WearLoop` when the Activity is created and when Madrid
+transit refreshes complete or fail.
 
 ## Tiles baseline
 
@@ -313,20 +313,21 @@ ic_complication_wear_loop.xml         Monochrome picker icon
 ```
 
 Complication data sources are not activities. Install the APK, then select
-`Wear Loop Status` in a watch face complication picker. The update period is
-300 seconds, the minimum regular interval enforced by the platform.
+`Madrid Wrist` in a watch face complication picker. The update period is 300
+seconds, the minimum regular interval enforced by the platform.
 
 ## Sensor logging experiment
 
-The app includes a minimal accelerometer logging experiment. Tap `SENSORS OFF`
-to enable it and `SENSORS ON` to stop it.
+The repository still includes a minimal accelerometer logging experiment helper,
+but the Madrid Wrist launcher no longer exposes it from the home screen. Reusing
+it in a future screen should keep activation opt-in.
 
 Runtime behavior:
 
 - Registers `Sensor.TYPE_ACCELEROMETER`.
 - Logs one formatted sample per second with `WearLoop`.
 - Logs start, stop, unavailable sensor, and accuracy changes.
-- Stops listening in `MainActivity.onDestroy`.
+- Stops listening when the owning screen or feature tears it down.
 
 Expected log shape:
 
@@ -346,7 +347,7 @@ SensorSampleFormatterTest.kt   JVM tests for stable formatting
 
 ## Examples gallery
 
-The app includes a compact examples gallery under:
+The app keeps compact examples under:
 
 ```text
 app/src/main/java/com/arfipod/wearosplayground/examples/

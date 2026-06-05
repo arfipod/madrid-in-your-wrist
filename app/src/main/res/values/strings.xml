@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Wear Loop</string>
-    <string name="tile_label">Wear Loop</string>
-    <string name="tile_description">Quick status tile for the Wear Loop playground.</string>
-    <string name="complication_label">Wear Loop Status</string>
+    <string name="app_name">Madrid Wrist</string>
+    <string name="tile_label">Madrid Wrist</string>
+    <string name="tile_description">Quick status tile for Madrid Wrist.</string>
+    <string name="complication_label">Madrid Wrist</string>
 </resources>

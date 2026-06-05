@@ -18,9 +18,13 @@ audio   Platform ToneGenerator playback
 video   Platform VideoView playback of a small MP4
 ```
 
+The normal launcher now opens `Madrid Wrist`. These examples remain available as
+direct developer routes with the `example` intent extra documented in
+`docs/examples.md`.
+
 ## Screenshots
 
-![Examples home](../docs/images/examples/wear-home.png)
+![Legacy examples home](../docs/images/examples/wear-home.png)
 
 ![Flappy Bird](../docs/images/examples/wear-flappy.png)
 

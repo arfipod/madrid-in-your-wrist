@@ -1,7 +1,8 @@
 # Metro Madrid NAP Example
 
-This app includes a Wear OS example for Metro de Madrid schedule data published
-through the Spanish National Access Point (NAP).
+This app includes Metro de Madrid schedule support published through the Spanish
+National Access Point (NAP). The same helper powers the Madrid Wrist product UI
+and the direct Metro development example.
 
 ## Source
 
@@ -95,10 +96,11 @@ ANDROID_SERIAL=WATCH_IP:ADB_PORT adb_cmd shell am start \
   --es example metro
 ```
 
-The example targets Line 4 at `Argüelles`, showing scheduled departures toward
-`Pinar de Chamartín`.
+The direct example targets Line 4 at `Argüelles`, showing scheduled departures
+toward `Pinar de Chamartín`. The Madrid Wrist product UI can load multiple
+Metro targets from its local catalog.
 
-At runtime the app:
+At runtime the direct example:
 
 ```text
 1. Reads NAP API v2 dataset `933`.

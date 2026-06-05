@@ -56,6 +56,23 @@ data class MetroScheduleResult(
     }
 }
 
+data class MetroDeparturesResult(
+    val departures: List<MetroDeparture>,
+    val isStale: Boolean,
+    val validUntil: LocalDate?,
+) {
+    fun compactLabel(): String {
+        val departureLabel = departures
+            .takeIf { it.isNotEmpty() }
+            ?.joinToString("\n") { it.compactLabel() }
+            ?: "No scheduled train"
+        if (!isStale) return departureLabel
+
+        val validText = validUntil?.format(DateTimeFormatter.ISO_LOCAL_DATE) ?: "expired feed"
+        return "GTFS $validText\n$departureLabel"
+    }
+}
+
 object NapMetroApiJson {
     private val urlRegex = Regex("""https?://[^"'\s\\]+""")
 
@@ -196,29 +213,65 @@ class MetroGtfsSchedule(
         target: MetroScheduleTarget = MetroScheduleTarget(),
         now: LocalDateTime = LocalDateTime.now(zoneId),
     ): MetroScheduleResult {
+        val result = nextDeparturesResult(
+            gtfsZipBytes = gtfsZipBytes,
+            target = target,
+            count = 1,
+            now = now,
+        )
+        return MetroScheduleResult(
+            departure = result.departures.firstOrNull(),
+            isStale = result.isStale,
+            validUntil = result.validUntil,
+        )
+    }
+
+    fun nextDeparturesResult(
+        gtfsZipBytes: ByteArray,
+        target: MetroScheduleTarget = MetroScheduleTarget(),
+        count: Int,
+        now: LocalDateTime = LocalDateTime.now(zoneId),
+    ): MetroDeparturesResult {
         val feed = GtfsFeed.fromZip(gtfsZipBytes)
-        val strictDeparture = feed.nextDeparture(
+        val strictDepartures = feed.nextDepartures(
             target = target,
             now = now,
             ignoreCalendarDateRange = false,
+            count = count,
         )
-        if (strictDeparture != null) {
-            return MetroScheduleResult(
-                departure = strictDeparture,
+        if (strictDepartures.isNotEmpty()) {
+            return MetroDeparturesResult(
+                departures = strictDepartures,
                 isStale = false,
                 validUntil = feed.validUntil(),
             )
         }
 
-        val fallbackDeparture = feed.nextDeparture(
+        val fallbackDepartures = feed.nextDepartures(
             target = target,
             now = now,
             ignoreCalendarDateRange = true,
+            count = count,
         )
-        return MetroScheduleResult(
-            departure = fallbackDeparture,
-            isStale = fallbackDeparture != null,
+        return MetroDeparturesResult(
+            departures = fallbackDepartures,
+            isStale = fallbackDepartures.isNotEmpty(),
             validUntil = feed.validUntil(),
+        )
+    }
+
+    fun nextDepartures(
+        gtfsZipBytes: ByteArray,
+        target: MetroScheduleTarget = MetroScheduleTarget(),
+        count: Int,
+        now: LocalDateTime = LocalDateTime.now(zoneId),
+    ): List<MetroDeparture> {
+        val feed = GtfsFeed.fromZip(gtfsZipBytes)
+        return feed.nextDepartures(
+            target = target,
+            now = now,
+            ignoreCalendarDateRange = false,
+            count = count,
         )
     }
 
@@ -227,12 +280,12 @@ class MetroGtfsSchedule(
         target: MetroScheduleTarget = MetroScheduleTarget(),
         now: LocalDateTime = LocalDateTime.now(zoneId),
     ): MetroDeparture? {
-        val feed = GtfsFeed.fromZip(gtfsZipBytes)
-        return feed.nextDeparture(
+        return nextDepartures(
+            gtfsZipBytes = gtfsZipBytes,
             target = target,
             now = now,
-            ignoreCalendarDateRange = false,
-        )
+            count = 1,
+        ).firstOrNull()
     }
 }
 
@@ -249,13 +302,25 @@ private data class GtfsFeed(
         target: MetroScheduleTarget,
         now: LocalDateTime,
         ignoreCalendarDateRange: Boolean,
-    ): MetroDeparture? {
+    ): MetroDeparture? = nextDepartures(
+        target = target,
+        now = now,
+        ignoreCalendarDateRange = ignoreCalendarDateRange,
+        count = 1,
+    ).firstOrNull()
+
+    fun nextDepartures(
+        target: MetroScheduleTarget,
+        now: LocalDateTime,
+        ignoreCalendarDateRange: Boolean,
+        count: Int,
+    ): List<MetroDeparture> {
         val targetStopIds = stops
             .filter { row ->
                 row["stop_name"].orEmpty().normalized().contains(target.stopNameQuery.normalized())
             }
             .associateBy { it["stop_id"].orEmpty() }
-        if (targetStopIds.isEmpty()) return null
+        if (targetStopIds.isEmpty()) return emptyList()
 
         return sequenceOf(0L, 1L)
             .flatMap { dayOffset ->
@@ -265,9 +330,12 @@ private data class GtfsFeed(
                     serviceDate = now.toLocalDate().plusDays(dayOffset),
                     now = now,
                     ignoreCalendarDateRange = ignoreCalendarDateRange,
+                    maxDeparturesPerStopTime = count.coerceAtLeast(1),
                 )
             }
-            .minByOrNull { it.departureTime }
+            .sortedBy { it.departureTime }
+            .take(count.coerceAtLeast(1))
+            .toList()
     }
 
     fun validUntil(): LocalDate? = calendar
@@ -284,6 +352,7 @@ private data class GtfsFeed(
         serviceDate: LocalDate,
         now: LocalDateTime,
         ignoreCalendarDateRange: Boolean,
+        maxDeparturesPerStopTime: Int,
     ): Sequence<MetroDeparture> {
         val activeServices = activeServices(
             date = serviceDate,
@@ -292,96 +361,105 @@ private data class GtfsFeed(
         if (activeServices.isEmpty()) return emptySequence()
         val serviceStart = serviceDate.atStartOfDay()
 
-        return stopTimes.asSequence().mapNotNull { stopTime ->
+        return stopTimes.asSequence().flatMap { stopTime ->
             val stopId = stopTime["stop_id"].orEmpty()
-            val stop = targetStopIds[stopId] ?: return@mapNotNull null
-            val trip = tripsById[stopTime["trip_id"].orEmpty()] ?: return@mapNotNull null
-            if (trip["service_id"].orEmpty() !in activeServices) return@mapNotNull null
+            val stop = targetStopIds[stopId] ?: return@flatMap emptySequence()
+            val trip = tripsById[stopTime["trip_id"].orEmpty()] ?: return@flatMap emptySequence()
+            if (trip["service_id"].orEmpty() !in activeServices) return@flatMap emptySequence()
 
             val route = routesById[trip["route_id"].orEmpty()] ?: emptyMap()
             val routeName = routeName(route)
             if (!target.routeNameQuery.isNullOrBlank() &&
                 !routeName.normalized().contains(target.routeNameQuery.normalized())
             ) {
-                return@mapNotNull null
+                return@flatMap emptySequence()
             }
 
             val destination = trip["trip_headsign"].orEmpty().ifBlank { "Metro" }
             if (!target.destinationQuery.isNullOrBlank() &&
                 !destination.normalized().contains(target.destinationQuery.normalized())
             ) {
-                return@mapNotNull null
+                return@flatMap emptySequence()
             }
 
             val stopOffsetSeconds = parseGtfsSeconds(stopTime["departure_time"].orEmpty())
                 ?: parseGtfsSeconds(stopTime["arrival_time"].orEmpty())
-                ?: return@mapNotNull null
+                ?: return@flatMap emptySequence()
 
             val tripId = stopTime["trip_id"].orEmpty()
-            val departureTime = nextDepartureTime(
+            departureTimes(
                 serviceStart = serviceStart,
                 tripId = tripId,
                 stopOffsetSeconds = stopOffsetSeconds,
                 now = now,
-            ) ?: return@mapNotNull null
-
-            departure(
-                stopName = stop["stop_name"].orEmpty().ifBlank { target.label },
-                routeName = routeName,
-                destination = destination,
-                departureTime = departureTime,
-                now = now,
-            )
+                maxDepartures = maxDeparturesPerStopTime,
+            ).map { departureTime ->
+                departure(
+                    stopName = stop["stop_name"].orEmpty().ifBlank { target.label },
+                    routeName = routeName,
+                    destination = destination,
+                    departureTime = departureTime,
+                    now = now,
+                )
+            }
         }
     }
 
-    private fun nextDepartureTime(
+    private fun departureTimes(
         serviceStart: LocalDateTime,
         tripId: String,
         stopOffsetSeconds: Int,
         now: LocalDateTime,
-    ): LocalDateTime? {
+        maxDepartures: Int,
+    ): Sequence<LocalDateTime> {
         val frequencyDepartures = frequenciesByTripId[tripId].orEmpty()
             .asSequence()
-            .mapNotNull { frequency ->
-                nextFrequencyDepartureTime(
+            .flatMap { frequency ->
+                frequencyDepartureTimes(
                     serviceStart = serviceStart,
                     stopOffsetSeconds = stopOffsetSeconds,
                     frequency = frequency,
                     now = now,
+                    maxDepartures = maxDepartures,
                 )
             }
-            .minOrNull()
-        if (frequencyDepartures != null) return frequencyDepartures
+            .sorted()
+            .take(maxDepartures)
+            .toList()
+        if (frequencyDepartures.isNotEmpty()) return frequencyDepartures.asSequence()
 
         val departureTime = serviceStart.plusSeconds(stopOffsetSeconds.toLong())
-        return departureTime.takeIf { it.isAfter(now) }
+        return sequenceOf(departureTime).filter { it.isAfter(now) }
     }
 
-    private fun nextFrequencyDepartureTime(
+    private fun frequencyDepartureTimes(
         serviceStart: LocalDateTime,
         stopOffsetSeconds: Int,
         frequency: Map<String, String>,
         now: LocalDateTime,
-    ): LocalDateTime? {
-        val startSeconds = parseGtfsSeconds(frequency["start_time"].orEmpty()) ?: return null
-        val endSeconds = parseGtfsSeconds(frequency["end_time"].orEmpty()) ?: return null
+        maxDepartures: Int,
+    ): Sequence<LocalDateTime> {
+        val startSeconds = parseGtfsSeconds(frequency["start_time"].orEmpty()) ?: return emptySequence()
+        val endSeconds = parseGtfsSeconds(frequency["end_time"].orEmpty()) ?: return emptySequence()
         val headwaySeconds = frequency["headway_secs"].orEmpty().toIntOrNull()
             ?.takeIf { it > 0 }
-            ?: return null
+            ?: return emptySequence()
 
         val firstDepartureSeconds = startSeconds + stopOffsetSeconds
         val lastDepartureSeconds = endSeconds + stopOffsetSeconds
         val nowSeconds = Duration.between(serviceStart, now).seconds
-        if (nowSeconds > lastDepartureSeconds) return null
+        if (nowSeconds > lastDepartureSeconds) return emptySequence()
 
         val intervalsAfterStart = ((nowSeconds - firstDepartureSeconds).coerceAtLeast(0) +
             headwaySeconds - 1) / headwaySeconds
         val departureSeconds = firstDepartureSeconds + intervalsAfterStart * headwaySeconds
-        if (departureSeconds > lastDepartureSeconds) return null
+        if (departureSeconds > lastDepartureSeconds) return emptySequence()
 
-        return serviceStart.plusSeconds(departureSeconds)
-            .takeIf { it.isAfter(now) }
+        return generateSequence(departureSeconds) { it + headwaySeconds }
+            .takeWhile { it <= lastDepartureSeconds }
+            .map { serviceStart.plusSeconds(it) }
+            .filter { it.isAfter(now) }
+            .take(maxDepartures.coerceAtLeast(1))
     }
 
     private fun departure(

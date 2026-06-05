@@ -7,20 +7,20 @@ import org.junit.Test
 class WearLoopComplicationContentTest {
     @Test
     fun complicationTextIsShort() {
-        assertEquals("Loop", WearLoopComplicationContent.text())
+        assertEquals("MAD", WearLoopComplicationContent.text())
         assertTrue(WearLoopComplicationContent.text().length <= 7)
     }
 
     @Test
     fun complicationTitleIsShort() {
-        assertEquals("Ready", WearLoopComplicationContent.title())
+        assertEquals("Transit", WearLoopComplicationContent.title())
         assertTrue(WearLoopComplicationContent.title().length <= 7)
     }
 
     @Test
     fun contentDescriptionIncludesShortBuildTimestamp() {
         assertEquals(
-            "Wear Loop ready. Build 2026-06-02T18:13:29",
+            "Madrid Wrist ready. Build 2026-06-02T18:13:29",
             WearLoopComplicationContent.contentDescription(
                 "2026-06-02T18:13:29.534290194Z"
             ),

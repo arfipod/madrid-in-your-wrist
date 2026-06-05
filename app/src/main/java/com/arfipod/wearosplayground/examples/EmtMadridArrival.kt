@@ -13,7 +13,21 @@ object EmtMadridTarget {
     const val DESTINATION = "VALDERRIVAS"
     const val LABEL = "E3 stop 1064 -> Valderrivas"
     const val API_BASE_URL = "https://openapi.emtmadrid.es"
+
+    val DEFAULT_STOP = EmtMadridStopTarget(
+        stopId = STOP_ID,
+        label = LABEL,
+        lineId = LINE_ID,
+        destination = DESTINATION,
+    )
 }
+
+data class EmtMadridStopTarget(
+    val stopId: String,
+    val label: String,
+    val lineId: String? = null,
+    val destination: String? = null,
+)
 
 data class EmtMadridCredentials(
     val clientId: String,
@@ -61,20 +75,115 @@ object EmtMadridJson {
         ?.groupValues
         ?.get(1)
 
-    fun parseArrivals(
-        rawBody: String,
-        lineId: String = EmtMadridTarget.LINE_ID,
-        destination: String = EmtMadridTarget.DESTINATION,
-    ): List<EmtBusArrival> {
-        return Regex("""\{[^{}]*(?:"lineId"|"lineArrive"|"line")[^{}]*}""")
-            .findAll(rawBody)
-            .mapNotNull { match -> parseArrivalObject(match.value) }
-            .filter { arrival ->
-                arrival.lineId.equals(lineId, ignoreCase = true) &&
-                    arrival.destination.normalized().contains(destination.normalized())
-            }
+    fun parseAllArrivals(rawBody: String): List<EmtBusArrival> {
+        return arrivalObjects(rawBody)
+            .asSequence()
+            .mapNotNull { rawObject -> parseArrivalObject(rawObject) }
             .sortedBy { it.secondsUntil }
             .toList()
+    }
+
+    fun parseArrivals(
+        rawBody: String,
+        lineId: String? = EmtMadridTarget.LINE_ID,
+        destination: String? = EmtMadridTarget.DESTINATION,
+    ): List<EmtBusArrival> {
+        return parseAllArrivals(rawBody)
+            .asSequence()
+            .filter { arrival ->
+                lineId.isNullOrBlank() || arrival.lineId.equals(lineId, ignoreCase = true)
+            }
+            .filter { arrival ->
+                destination.isNullOrBlank() ||
+                    arrival.destination.normalized().contains(destination.normalized())
+            }
+            .toList()
+    }
+
+    private fun arrivalObjects(rawBody: String): List<String> {
+        val objects = extractObjectsFromArray(rawBody, "Arrive") +
+            extractObjectsFromArray(rawBody, "arrives")
+        if (objects.isNotEmpty()) {
+            return objects
+        }
+
+        return Regex("""\{[^{}]*(?:"lineId"|"lineArrive"|"line")[^{}]*\}""")
+            .findAll(rawBody)
+            .map { it.value }
+            .toList()
+    }
+
+    private fun extractObjectsFromArray(rawBody: String, fieldName: String): List<String> {
+        val objects = mutableListOf<String>()
+        val marker = "\"$fieldName\""
+        var searchFrom = 0
+
+        while (searchFrom < rawBody.length) {
+            val markerIndex = rawBody.indexOf(marker, startIndex = searchFrom)
+            if (markerIndex < 0) break
+
+            val colonIndex = rawBody.indexOf(':', startIndex = markerIndex + marker.length)
+            val arrayStart = if (colonIndex < 0) -1 else rawBody.indexOf('[', startIndex = colonIndex + 1)
+            if (arrayStart < 0) {
+                searchFrom = markerIndex + marker.length
+                continue
+            }
+
+            var arrayDepth = 0
+            var objectDepth = 0
+            var objectStart = -1
+            var inString = false
+            var escaped = false
+            var index = arrayStart
+
+            while (index < rawBody.length) {
+                val char = rawBody[index]
+                if (inString) {
+                    when {
+                        escaped -> escaped = false
+                        char == '\\' -> escaped = true
+                        char == '"' -> inString = false
+                    }
+                    index += 1
+                    continue
+                }
+
+                when (char) {
+                    '"' -> inString = true
+                    '[' -> arrayDepth += 1
+                    ']' -> {
+                        arrayDepth -= 1
+                        if (arrayDepth == 0) {
+                            index += 1
+                            break
+                        }
+                    }
+                    '{' -> {
+                        if (objectDepth == 0 && arrayDepth == 1) {
+                            objectStart = index
+                        }
+                        if (objectDepth > 0 || arrayDepth == 1) {
+                            objectDepth += 1
+                        }
+                    }
+                    '}' -> {
+                        if (objectDepth > 0) {
+                            objectDepth -= 1
+                            if (objectDepth == 0 && objectStart >= 0) {
+                                objects += rawBody.substring(objectStart, index + 1)
+                                objectStart = -1
+                            }
+                        }
+                    }
+                }
+
+                index += 1
+            }
+
+            searchFrom = index
+        }
+
+        return objects
     }
 
     private fun parseArrivalObject(rawObject: String): EmtBusArrival? {
@@ -133,7 +242,17 @@ class EmtMadridClient(
         baseUrl = baseUrl,
     )
 
-    suspend fun fetchNextE3Arrival(): EmtBusArrival? = withContext(Dispatchers.IO) {
+    private var cachedAccessToken: String? = null
+
+    suspend fun fetchNextE3Arrival(): EmtBusArrival? = fetchArrivals(
+        target = EmtMadridTarget.DEFAULT_STOP,
+        limit = 1,
+    ).firstOrNull()
+
+    suspend fun fetchArrivals(
+        target: EmtMadridStopTarget,
+        limit: Int,
+    ): List<EmtBusArrival> = withContext(Dispatchers.IO) {
         val credentials = EmtMadridCredentials(
             clientId = clientId,
             passKey = passKey,
@@ -142,9 +261,23 @@ class EmtMadridClient(
         )
         require(credentials.hasAnyLogin) { "EMT credentials are blank." }
 
-        val token = login(credentials)
-        val arrivals = requestArrivals(token)
-        EmtMadridJson.parseArrivals(arrivals).firstOrNull()
+        val token = accessToken(credentials)
+        val arrivals = requestArrivals(
+            accessToken = token,
+            stopId = target.stopId,
+        )
+        EmtMadridJson.parseArrivals(
+            rawBody = arrivals,
+            lineId = target.lineId,
+            destination = target.destination,
+        ).take(limit.coerceAtLeast(1))
+    }
+
+    private fun accessToken(credentials: EmtMadridCredentials): String {
+        val cached = cachedAccessToken
+        if (!cached.isNullOrBlank()) return cached
+
+        return login(credentials).also { cachedAccessToken = it }
     }
 
     private fun login(credentials: EmtMadridCredentials): String {
@@ -180,9 +313,9 @@ class EmtMadridClient(
             ?: throw IOException("EMT login response did not include accessToken.")
     }
 
-    private fun requestArrivals(accessToken: String): String = request(
+    private fun requestArrivals(accessToken: String, stopId: String): String = request(
         method = "POST",
-        path = "/v2/transport/busemtmad/stops/${EmtMadridTarget.STOP_ID}/arrives/",
+        path = "/v2/transport/busemtmad/stops/$stopId/arrives/",
         headers = mapOf(
             "accessToken" to accessToken,
             "Accept" to "application/json",
