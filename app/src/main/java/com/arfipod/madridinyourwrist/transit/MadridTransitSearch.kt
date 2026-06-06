@@ -1,19 +1,25 @@
 package com.arfipod.madridinyourwrist.transit
 
+import java.util.IdentityHashMap
+import java.util.LinkedHashSet
 import java.util.Locale
 import java.util.PriorityQueue
 
 object MadridTransitSearch {
     private const val MAX_QUERY_CHARS = 48
+    private const val FIELD_SEPARATOR: Char = '\u001F'
+    private val COMMON_SEARCH_STOP_WORDS = setOf("de", "del", "la", "las", "el", "los", "y")
+    private val indexCache = IdentityHashMap<List<MadridTransitOption>, SearchIndex>()
 
     fun search(
         options: List<MadridTransitOption>,
         query: String,
         limit: Int = 8,
     ): List<MadridTransitOption> {
-        val terms = query.normalizedSearchTerms()
+        val terms = query.normalizedSearchTerms().map { term -> SearchTerm(term) }
         if (terms.isEmpty()) return options
-        val phrase = terms.joinToString(" ")
+        val phrase = terms.joinToString(" ") { term -> term.value }
+        val searchIndex = indexFor(options)
 
         val resultLimit = limit.coerceAtLeast(1)
         val bestMatches = PriorityQueue<SearchMatch>(
@@ -22,11 +28,11 @@ object MadridTransitSearch {
                 .thenByDescending { match -> match.option.id }
         )
 
-        options.forEach { option ->
-            val score = option.searchScore(terms, phrase)
+        searchIndex.documents.forEach { document ->
+            val score = document.searchScore(terms, phrase)
             if (score <= 0) return@forEach
 
-            val match = SearchMatch(option = option, score = score)
+            val match = SearchMatch(option = document.option, score = score)
             if (bestMatches.size < resultLimit) {
                 bestMatches += match
             } else if (BETTER_MATCH_FIRST.compare(match, bestMatches.peek()) < 0) {
@@ -38,6 +44,12 @@ object MadridTransitSearch {
         return bestMatches.toList()
             .sortedWith(BETTER_MATCH_FIRST)
             .map { match -> match.option }
+    }
+
+    fun prepare(options: List<MadridTransitOption>) {
+        if (options.isNotEmpty()) {
+            indexFor(options)
+        }
     }
 
     fun isQueryReady(query: String): Boolean {
@@ -67,35 +79,51 @@ object MadridTransitSearch {
         return builder.toString()
     }
 
-    private fun String.normalizedSearchTerms(): List<String> {
-        return normalizedSearchText()
+    internal fun String.normalizedSearchTerms(): List<String> {
+        val terms = normalizedSearchText()
             .split(' ')
             .filter { term -> term.isNotBlank() }
+        if (terms.size <= 1) return terms
+
+        return terms
+            .filterNot { term -> term in COMMON_SEARCH_STOP_WORDS }
+            .ifEmpty { terms }
     }
 
-    private fun MadridTransitOption.searchScore(terms: List<String>, phrase: String): Int {
-        val fields = searchFields()
-            .asSequence()
-            .map { field -> field.normalizedSearchText() }
-            .filter { field -> field.isNotBlank() }
-            .distinct()
-            .toList()
-        val primaryFields = primarySearchFields()
-            .asSequence()
-            .map { field -> field.normalizedSearchText() }
-            .filter { field -> field.isNotBlank() }
-            .distinct()
-            .toList()
+    private fun indexFor(options: List<MadridTransitOption>): SearchIndex {
+        synchronized(indexCache) {
+            indexCache[options]?.let { index -> return index }
+            val index = SearchIndex(
+                documents = options.map { option -> option.toSearchDocument() },
+            )
+            indexCache[options] = index
+            return index
+        }
+    }
 
-        val termScore = terms.fold(0) { score, term ->
-            val fieldScore = fields.bestFieldScore(term)
+    private fun MadridTransitOption.toSearchDocument(): SearchDocument {
+        return SearchDocument(
+            option = this,
+            fieldsBlob = normalizedFieldBlob(searchFields()),
+            primaryFieldsBlob = normalizedFieldBlob(primarySearchFields()),
+            phraseField = label.normalizedSearchText(),
+        )
+    }
+
+    private fun SearchDocument.searchScore(terms: List<SearchTerm>, phrase: String): Int {
+        var termScore = 0
+        terms.forEach { term ->
+            val fieldScore = fieldsBlob.bestBlobScore(term)
             if (fieldScore == 0) return 0
-            score + fieldScore
+            termScore += fieldScore
         }
-        val primaryScore = terms.fold(0) { score, term ->
-            score + primaryFields.bestFieldScore(term)
+
+        var primaryScore = 0
+        terms.forEach { term ->
+            primaryScore += primaryFieldsBlob.bestBlobScore(term)
         }
-        val phraseScore = if (terms.size > 1 && phrase in fields.firstOrNull().orEmpty()) {
+
+        val phraseScore = if (terms.size > 1 && phrase in phraseField) {
             30
         } else {
             0
@@ -103,10 +131,11 @@ object MadridTransitSearch {
         return termScore + primaryScore + phraseScore
     }
 
-    private fun List<String>.bestFieldScore(term: String): Int = when {
-        any { field -> field == term } -> 40
-        any { field -> field.startsWith(term) } -> 25
-        any { field -> term in field } -> 15
+    private fun String.bestBlobScore(term: SearchTerm): Int = when {
+        isBlank() -> 0
+        term.exactNeedle in this -> 40
+        term.prefixNeedle in this -> 25
+        term.value in this -> 15
         else -> 0
     }
 
@@ -153,6 +182,25 @@ object MadridTransitSearch {
         return listOf(label, detail, kind.label, source.label) + searchAliases + metroFields + busFields
     }
 
+    private fun normalizedFieldBlob(fields: List<String>): String {
+        val normalizedFields = LinkedHashSet<String>()
+        fields.forEach { field ->
+            val normalized = field.normalizedSearchText()
+            if (normalized.isNotBlank()) {
+                normalizedFields += normalized
+            }
+        }
+        if (normalizedFields.isEmpty()) return ""
+
+        return buildString {
+            normalizedFields.forEach { field ->
+                append(FIELD_SEPARATOR)
+                append(field)
+            }
+            append(FIELD_SEPARATOR)
+        }
+    }
+
     private fun Char.normalizedSearchChar(): Char? = when (this) {
         in 'a'..'z', in '0'..'9' -> this
         in 'A'..'Z' -> lowercaseChar()
@@ -171,6 +219,24 @@ object MadridTransitSearch {
         val option: MadridTransitOption,
         val score: Int,
     )
+
+    private data class SearchIndex(
+        val documents: List<SearchDocument>,
+    )
+
+    private data class SearchDocument(
+        val option: MadridTransitOption,
+        val fieldsBlob: String,
+        val primaryFieldsBlob: String,
+        val phraseField: String,
+    )
+
+    private data class SearchTerm(
+        val value: String,
+    ) {
+        val exactNeedle: String = "$FIELD_SEPARATOR$value$FIELD_SEPARATOR"
+        val prefixNeedle: String = "$FIELD_SEPARATOR$value"
+    }
 
     private val BETTER_MATCH_FIRST = compareByDescending<SearchMatch> { match -> match.score }
         .thenBy { match -> match.option.label.lowercase(Locale.ROOT) }

@@ -963,8 +963,8 @@ private fun rememberTransitSearchState(
             }
         }
 
-        state = TransitSearchState.Loading
         delay(SEARCH_DEBOUNCE_MILLIS)
+        state = TransitSearchState.Loading
         val results = withContext(Dispatchers.Default) {
             MadridTransitCatalog.searchOptions(
                 query = query,
@@ -993,6 +993,11 @@ private fun MadridTransitPicker(
             .toSet()
     }
     var query by remember { mutableStateOf("") }
+    LaunchedEffect(kind) {
+        withContext(Dispatchers.Default) {
+            MadridTransitCatalog.prepareSearch(kind)
+        }
+    }
     val searchState = rememberTransitSearchState(
         query = query,
         kind = kind,
@@ -1176,7 +1181,10 @@ private fun SearchField(
         value = query,
         onValueChange = { value -> onQueryChange(value.replace('\n', ' ').take(48)) },
         singleLine = true,
-        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+        keyboardOptions = KeyboardOptions(
+            autoCorrectEnabled = false,
+            imeAction = ImeAction.Search,
+        ),
         keyboardActions = KeyboardActions(
             onSearch = { keyboardController?.hide() },
         ),

@@ -248,6 +248,10 @@ object MadridTransitCatalog {
         )
     }
 
+    fun prepareSearch(kind: MadridTransitKind? = null) {
+        MadridTransitSearch.prepare(optionsForKind(kind))
+    }
+
     private fun optionsForKind(kind: MadridTransitKind?): List<MadridTransitOption> = when (kind) {
         MadridTransitKind.METRO -> metroOptions
         MadridTransitKind.BUS -> busOptions

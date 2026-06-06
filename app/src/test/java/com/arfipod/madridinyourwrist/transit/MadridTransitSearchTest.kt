@@ -24,6 +24,16 @@ class MadridTransitSearchTest {
     }
 
     @Test
+    fun multiWordQueriesIgnoreCommonConnectorWords() {
+        assertEquals(
+            listOf("puerta", "arganda"),
+            MadridTransitSearch.run {
+                "Puerta de arganda".normalizedSearchTerms()
+            },
+        )
+    }
+
+    @Test
     fun findsMetroByStationLineAndDestination() {
         assertEquals(
             "metro_4_54_pinar_de_chamartin",
@@ -78,6 +88,19 @@ class MadridTransitSearchTest {
         assertEquals(
             "bus_interurbano_421_08046_p_delicias_plaza_de_legazpi",
             MadridTransitCatalog.searchOptions("alfaro iglesia 421 legazpi", kind = MadridTransitKind.BUS)
+                .first()
+                .id,
+        )
+        assertEquals(
+            "Puerta Arganda",
+            MadridTransitCatalog.searchOptions("Puerta de arganda", kind = MadridTransitKind.BUS)
+                .first()
+                .busTarget
+                ?.stopName,
+        )
+        assertEquals(
+            "bus_emt_se718_5839_puerta_arganda",
+            MadridTransitCatalog.searchOptions("Puerta de arganda se718", kind = MadridTransitKind.BUS)
                 .first()
                 .id,
         )

@@ -16,7 +16,7 @@ The watch app can be operated entirely from Wear OS:
   search/picker screens into the currently selected profile.
 - Opens the Wear OS keyboard for text search and matches the local catalog by
   station, stop, stop ID, line, destination, and aliases without requiring
-  accents.
+  accents or common connector words such as `de`, `la`, or `el`.
 - Keeps nearby/search result cards readable on the watch by giving line,
   station/stop name, stop code, destination, service type, and distance their
   own compact fields.
