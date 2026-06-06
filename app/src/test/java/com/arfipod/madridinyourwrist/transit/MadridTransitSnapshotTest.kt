@@ -13,13 +13,13 @@ class MadridTransitSnapshotTest {
     fun headlineChoosesSoonestTransitAcrossLoadedResults() {
         val metroFavorite = requireNotNull(
             MadridTransitCatalog.favoriteFor(
-                optionId = "metro_l4_arguelles_pinar",
+                optionId = "metro_4_54_pinar_de_chamartin",
                 place = MadridTransitPlace.PROFILE_1,
             )
         )
         val busFavorite = requireNotNull(
             MadridTransitCatalog.favoriteFor(
-                optionId = "bus_e3_daroca_valderrivas",
+                optionId = "bus_emt_e3_1064_valderrivas",
                 place = MadridTransitPlace.PROFILE_1,
             )
         )
@@ -67,7 +67,7 @@ class MadridTransitSnapshotTest {
             storedAtEpochMillis = 1_234L,
             items = listOf(
                 MadridTransitSnapshotItem(
-                    optionId = "metro_l4_arguelles_pinar",
+                    optionId = "metro_4_54_pinar_de_chamartin",
                     kind = MadridTransitKind.METRO,
                     place = MadridTransitPlace.PROFILE_3,
                     optionLabel = "Argüelles L4",
@@ -89,14 +89,14 @@ class MadridTransitSnapshotTest {
     fun decoderAcceptsLegacySnapshotsWithoutStoredTimestamp() {
         val raw = listOf(
             "v1\t08%3A15",
-            "bus_e3_daroca_valderrivas\tBUS\tprofile_1\tDaroca+E3\tValderrivas\tE3\tVALDERRIVAS\t4m\t4",
+            "bus_emt_e3_1064_valderrivas\tBUS\tprofile_1\tDaroca+E3\tValderrivas\tE3\tVALDERRIVAS\t4m\t4",
         ).joinToString("\n")
 
         val decoded = MadridTransitSnapshotCodec.decode(raw)
 
         assertEquals("08:15", decoded?.updatedAt)
         assertEquals(0L, decoded?.storedAtEpochMillis)
-        assertEquals("bus_e3_daroca_valderrivas", decoded?.items?.single()?.optionId)
+        assertEquals("bus_emt_e3_1064_valderrivas", decoded?.items?.single()?.optionId)
     }
 
     @Test

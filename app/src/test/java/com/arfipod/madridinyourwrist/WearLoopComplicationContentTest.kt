@@ -58,7 +58,7 @@ class WearLoopComplicationContentTest {
         updatedAt = "08:15",
         items = listOf(
             MadridTransitSnapshotItem(
-                optionId = "bus_e3_daroca_valderrivas",
+                optionId = "bus_emt_e3_1064_valderrivas",
                 kind = MadridTransitKind.BUS,
                 place = MadridTransitPlace.PROFILE_1,
                 optionLabel = "Daroca E3",

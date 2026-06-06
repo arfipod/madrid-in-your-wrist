@@ -31,12 +31,15 @@ Host workflow: WSL2 Ubuntu, Docker, Gradle wrapper, VS Code/Codex, and ADB Wi-Fi
 ## What The App Does
 
 - Launches a Wear OS Activity for `Madrid Wrist`.
-- Stores Metro and EMT bus favorites directly on the watch.
+- Stores Metro and bus favorites directly on the watch.
 - Groups favorites into generic profiles: `Perfil 1`, `Perfil 2`, `Perfil 3`.
 - Shows the soonest cached or freshly loaded arrival in a top glance card.
-- Adds Metro stations and EMT stops from watch search/pickers and nearby sorting.
+- Adds Metro, Metro Ligero, EMT, and interurban bus options from watch
+  search/pickers and nearby sorting.
 - Supports on-watch text search across the local catalog by station, stop,
   stop ID, line, destination, and aliases, with accent-insensitive matching.
+- Ships a generated local catalog from official CRTM GTFS feeds: 37,308
+  line/stop/destination options at the time of generation.
 - Uses each Metro line's own color in Metro labels and glance highlights.
 - Lets each favorite configure visible arrival count and optional proximity
   trigger radius (`500m`, `1km`, `2km`).
@@ -47,7 +50,9 @@ Host workflow: WSL2 Ubuntu, Docker, Gradle wrapper, VS Code/Codex, and ADB Wi-Fi
   are outside the selected distance.
 - Reads only last-known location and rechecks it sparingly for proximity/nearby
   flows instead of running continuous location tracking.
-- Uses live Metro/EMT APIs when validated internet is available.
+- Uses live Metro/EMT APIs when validated internet is available. Options from
+  feeds without a live integration remain searchable/addable as catalog-only
+  favorites.
 - Falls back to the last stored snapshot when offline or when an API refresh
   fails.
 - Feeds the Tile and `SHORT_TEXT` complication from cached snapshots only.
@@ -63,6 +68,7 @@ app/src/main/.../transit     Catalog, favorites, runtime, cache, refresh policy
 app/src/main/.../examples    Direct developer example routes
 app/src/test/...             JVM unit tests
 scripts/                     Build, ADB, screenshot, logcat, bugreport helpers
+tools/                       Reproducible data generators
 docs/                        Product, workflow, API, and device documentation
 artifacts/                   Runtime outputs, ignored by Git
 ```

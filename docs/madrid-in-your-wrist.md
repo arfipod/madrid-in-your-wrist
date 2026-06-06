@@ -12,8 +12,8 @@ The watch app can be operated entirely from Wear OS:
   profiles: `Perfil 1`, `Perfil 2`, and `Perfil 3`.
 - Shows a large top glance card with the soonest cached or freshly loaded
   departure/arrival for the selected profile.
-- Adds Metro stations and EMT bus stops from separate search/picker screens into
-  the currently selected profile.
+- Adds Metro, Metro Ligero, EMT, and interurban bus options from separate
+  search/picker screens into the currently selected profile.
 - Opens the Wear OS keyboard for text search and matches the local catalog by
   station, stop, stop ID, line, destination, and aliases without requiring
   accents.
@@ -46,6 +46,37 @@ bus favorite in `Perfil 1`.
 
 ## Data Sources
 
+The searchable catalog is generated from official CRTM GTFS downloads exposed by
+the CRTM/ArcGIS open-data portal:
+
+```text
+CRTM GTFS Red de Metro:                    491 options
+CRTM GTFS Red de Metro Ligero:             106 options
+CRTM GTFS Red de EMT:                   11,943 options
+CRTM GTFS Red de Autobuses Interurbanos: 24,768 options
+```
+
+Feed item IDs:
+
+```text
+Metro:         5c7f2951962540d69ffe8f640d94c246
+Metro Ligero:  aaed26cc0ff64b0c947ac0bc3e033196
+EMT:           868df0e58fca47e79b942902dffd7da0
+Interurbanos:  885399f83408473c8d815e40c5e702b7
+```
+
+The generator writes
+`app/src/main/java/com/arfipod/madridinyourwrist/transit/MadridGeneratedTransitCatalog.kt`
+with a compact line/stop/destination index. Regenerate it with:
+
+```bash
+python3 tools/generate_transit_catalog.py
+```
+
+Downloaded GTFS zips are cached under `artifacts/gtfs/`, which is ignored by
+Git. The generated Kotlin source is committed so normal builds do not need
+network access.
+
 Metro uses the NAP/GTFS implementation documented in
 [`metro-madrid-nap.md`](metro-madrid-nap.md). It downloads the Metro de
 Madrid GTFS-ZIP dataset with `BuildConfig.NAP_API_KEY` and computes upcoming
@@ -57,52 +88,22 @@ Bus uses the EMT Madrid MobilityLabs implementation documented in
 `BuildConfig.EMT_EMAIL`/`BuildConfig.EMT_PASSWORD`, then calls the stop arrivals
 endpoint.
 
-The initial EMT bus catalog is intentionally small and curated from EMT's public
-E3 line page:
-
-```text
-https://www.emtmadrid.es/EMTBUS/Mi-linea?linea=E3
-```
-
-That page lists E3 stops including `FELIPE II - 755`,
-`AVENIDA DE DAROCA-CASALARREINA - 1064`, and `VALDERRIVAS - 5116`.
-
-## Current Catalog
-
-Metro:
-
-```text
-Argüelles L4 -> Pinar de Chamartín
-Goya L2      -> Las Rosas
-Sol L1       -> Pinar de Chamartín
-```
-
-Bus:
-
-```text
-Felipe II E3    -> Valderrivas
-Daroca E3       -> Valderrivas
-Valderrivas E3  -> Felipe II
-```
-
-The catalog is data-driven in `MadridTransitCatalog`, so adding more stations or
-stops should not require changing the UI flow.
-
-Search currently runs against this local catalog. Expanding it to literally all
-Metro stations and EMT stops means feeding a complete catalog into
-`MadridTransitCatalog`; the watch search UI and matcher are already prepared for
-that larger list.
+Metro NAP and EMT OpenAPI are the live integrations today. Metro Ligero and
+interurban bus options are catalog-only for now: users can find them, save them,
+sort them by distance, and use proximity triggers, but refresh shows `Solo
+catálogo GTFS` until a live or planned-schedule runtime is added for those feeds.
+This version uses the generated official catalog as the sole catalog source; old
+hand-curated favorite IDs are not preserved.
 
 ## Favorites And Profiles
 
 Profiles are generic buckets for transit favorites. A favorite can represent a
-Metro line/station/destination pair or an EMT line/stop/destination pair. The
+Metro line/station/destination pair or a bus line/stop/destination pair. The
 same station or stop can be saved in more than one profile, with independent
 counts and proximity trigger settings.
 
-The current watch UI supports three built-in profiles. Stored legacy IDs from
-earlier personal labels are still decoded and migrated to the generic profile
-IDs when favorites are saved again.
+The current watch UI supports three built-in profiles. This version does not
+migrate earlier personal profile labels or hand-curated favorite IDs.
 
 ## Online And Offline Policy
 
@@ -171,6 +172,7 @@ Captured from the installed debug APK on a real Pixel Watch 3.
 MainActivity.kt                    Launcher and direct example-route bridge
 MadridInYourWristApp.kt            Wear OS Compose product UI
 transit/MadridTransitModels.kt     Catalog, profiles, favorites, counts, distance sorting
+transit/MadridGeneratedTransitCatalog.kt Generated official GTFS catalog index
 transit/MadridMetroLineColors.kt   Metro, Ramal, and Metro Ligero color palette
 transit/MadridTransitSearch.kt     Accent-insensitive station/stop/line matcher
 transit/MadridTransitStore.kt      SharedPreferences favorites/profile persistence
@@ -179,6 +181,7 @@ transit/MadridTransitRefreshPolicy.kt Online/offline cache decision policy
 transit/MadridTransitRuntime.kt    Runtime loading across Metro and bus favorites
 transit/MadridLocationProvider.kt  Platform last-known-location helper
 transit/MadridNetworkProvider.kt   Platform validated-internet helper
+tools/generate_transit_catalog.py  Official CRTM GTFS catalog generator
 WearLoopTileService.kt             ProtoLayout Tile fed by cached selected-profile snapshot
 WearLoopComplicationService.kt     SHORT_TEXT complication fed by cached selected-profile snapshot
 ```

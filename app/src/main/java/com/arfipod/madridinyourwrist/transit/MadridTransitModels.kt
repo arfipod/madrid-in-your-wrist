@@ -13,24 +13,38 @@ enum class MadridTransitKind(val label: String) {
     BUS("Bus"),
 }
 
+enum class MadridTransitSource(
+    val label: String,
+    val hasLiveArrivals: Boolean,
+) {
+    METRO_NAP(label = "Metro GTFS/NAP", hasLiveArrivals = true),
+    EMT_OPENAPI(label = "EMT OpenAPI", hasLiveArrivals = true),
+    CRTM_STATIC_GTFS(label = "Solo catálogo CRTM", hasLiveArrivals = false),
+    ;
+
+    companion object {
+        fun defaultFor(kind: MadridTransitKind): MadridTransitSource = when (kind) {
+            MadridTransitKind.METRO -> METRO_NAP
+            MadridTransitKind.BUS -> EMT_OPENAPI
+        }
+    }
+}
+
 enum class MadridTransitPlace(
     val id: String,
     val label: String,
     val shortLabel: String,
-    val legacyIds: Set<String> = emptySet(),
 ) {
-    PROFILE_1(id = "profile_1", label = "Perfil 1", shortLabel = "P1", legacyIds = setOf("home")),
-    PROFILE_2(id = "profile_2", label = "Perfil 2", shortLabel = "P2", legacyIds = setOf("work")),
-    PROFILE_3(id = "profile_3", label = "Perfil 3", shortLabel = "P3", legacyIds = setOf("maria")),
+    PROFILE_1(id = "profile_1", label = "Perfil 1", shortLabel = "P1"),
+    PROFILE_2(id = "profile_2", label = "Perfil 2", shortLabel = "P2"),
+    PROFILE_3(id = "profile_3", label = "Perfil 3", shortLabel = "P3"),
     ;
 
     companion object {
         val DEFAULT: MadridTransitPlace = PROFILE_1
         val selectable: List<MadridTransitPlace> = entries.toList()
 
-        fun fromId(id: String?): MadridTransitPlace? = entries.firstOrNull { place ->
-            place.id == id || id in place.legacyIds
-        }
+        fun fromId(id: String?): MadridTransitPlace? = entries.firstOrNull { place -> place.id == id }
     }
 }
 
@@ -42,6 +56,7 @@ data class MadridGeoPoint(
 data class MadridTransitOption(
     val id: String,
     val kind: MadridTransitKind,
+    val source: MadridTransitSource = MadridTransitSource.defaultFor(kind),
     val label: String,
     val detail: String,
     val location: MadridGeoPoint?,
@@ -116,104 +131,24 @@ object MadridTransitProximity {
 }
 
 object MadridTransitCatalog {
-    val metroOptions: List<MadridTransitOption> = listOf(
-        MadridTransitOption(
-            id = "metro_l4_arguelles_pinar",
-            kind = MadridTransitKind.METRO,
-            label = "Argüelles L4",
-            detail = "Pinar de Chamartín",
-            location = MadridGeoPoint(latitude = 40.4304, longitude = -3.7159),
-            searchAliases = listOf("Arguelles", "Línea 4", "Linea 4", "Chamartin"),
-            metroTarget = MetroScheduleTarget(
-                label = "L4 Argüelles -> Pinar de Chamartín",
-                stopNameQuery = "Argüelles",
-                routeNameQuery = "4",
-                destinationQuery = "Pinar de Chamartín",
-            ),
-        ),
-        MadridTransitOption(
-            id = "metro_l2_goya_las_rosas",
-            kind = MadridTransitKind.METRO,
-            label = "Goya L2",
-            detail = "Las Rosas",
-            location = MadridGeoPoint(latitude = 40.4247, longitude = -3.6757),
-            searchAliases = listOf("Línea 2", "Linea 2"),
-            metroTarget = MetroScheduleTarget(
-                label = "L2 Goya -> Las Rosas",
-                stopNameQuery = "Goya",
-                routeNameQuery = "2",
-                destinationQuery = "Las Rosas",
-            ),
-        ),
-        MadridTransitOption(
-            id = "metro_l1_sol_pinar",
-            kind = MadridTransitKind.METRO,
-            label = "Sol L1",
-            detail = "Pinar de Chamartín",
-            location = MadridGeoPoint(latitude = 40.4168, longitude = -3.7038),
-            searchAliases = listOf("Línea 1", "Linea 1", "Chamartin"),
-            metroTarget = MetroScheduleTarget(
-                label = "L1 Sol -> Pinar de Chamartín",
-                stopNameQuery = "Sol",
-                routeNameQuery = "1",
-                destinationQuery = "Pinar de Chamartín",
-            ),
-        ),
-    )
+    val metroOptions: List<MadridTransitOption> by lazy {
+        MadridGeneratedTransitCatalog.options.filter { option -> option.kind == MadridTransitKind.METRO }
+    }
 
-    val busOptions: List<MadridTransitOption> = listOf(
-        MadridTransitOption(
-            id = "bus_e3_felipe_valderrivas",
-            kind = MadridTransitKind.BUS,
-            label = "Felipe II E3",
-            detail = "Valderrivas",
-            location = MadridGeoPoint(latitude = 40.4244, longitude = -3.6754),
-            searchAliases = listOf("Parada 755", "Stop 755", "Felipe Segundo"),
-            busTarget = EmtMadridStopTarget(
-                stopId = "755",
-                label = "Felipe II E3 -> Valderrivas",
-                lineId = "E3",
-                destination = "VALDERRIVAS",
-            ),
-        ),
-        MadridTransitOption(
-            id = "bus_e3_daroca_valderrivas",
-            kind = MadridTransitKind.BUS,
-            label = "Daroca E3",
-            detail = "Valderrivas",
-            location = MadridGeoPoint(latitude = 40.421145, longitude = -3.669232),
-            searchAliases = listOf("Parada 1064", "Stop 1064", "Avenida de Daroca", "Casalarreina"),
-            busTarget = EmtMadridStopTarget(
-                stopId = "1064",
-                label = "Avenida de Daroca E3 -> Valderrivas",
-                lineId = "E3",
-                destination = "VALDERRIVAS",
-            ),
-        ),
-        MadridTransitOption(
-            id = "bus_e3_valderrivas_felipe",
-            kind = MadridTransitKind.BUS,
-            label = "Valderrivas E3",
-            detail = "Felipe II",
-            location = MadridGeoPoint(latitude = 40.4008, longitude = -3.6043),
-            searchAliases = listOf("Parada 5116", "Stop 5116", "Felipe Segundo"),
-            busTarget = EmtMadridStopTarget(
-                stopId = "5116",
-                label = "Valderrivas E3 -> Felipe II",
-                lineId = "E3",
-                destination = "FELIPE II",
-            ),
-        ),
-    )
+    val busOptions: List<MadridTransitOption> by lazy {
+        MadridGeneratedTransitCatalog.options.filter { option -> option.kind == MadridTransitKind.BUS }
+    }
 
-    val allOptions: List<MadridTransitOption> = metroOptions + busOptions
+    val allOptions: List<MadridTransitOption> by lazy { metroOptions + busOptions }
 
-    val defaultFavorites: List<MadridTransitFavorite> = listOfNotNull(
-        favoriteFor("metro_l4_arguelles_pinar", place = MadridTransitPlace.PROFILE_1),
-        favoriteFor("bus_e3_daroca_valderrivas", place = MadridTransitPlace.PROFILE_1),
-    )
+    val defaultFavorites: List<MadridTransitFavorite> by lazy {
+        listOfNotNull(
+            favoriteFor("metro_4_54_pinar_de_chamartin", place = MadridTransitPlace.PROFILE_1),
+            favoriteFor("bus_emt_e3_1064_valderrivas", place = MadridTransitPlace.PROFILE_1),
+        )
+    }
 
-    fun optionById(id: String): MadridTransitOption? = allOptions.firstOrNull { it.id == id }
+    fun optionById(id: String): MadridTransitOption? = MadridGeneratedTransitCatalog.optionById(id)
 
     fun favoriteFor(
         optionId: String,
@@ -257,6 +192,7 @@ object MadridTransitCatalog {
             limit = limit,
         )
     }
+
 }
 
 fun distanceMeters(from: MadridGeoPoint, to: MadridGeoPoint): Int {

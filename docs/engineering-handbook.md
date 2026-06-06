@@ -49,6 +49,7 @@ app/src/main/...Tile*.kt      Wear OS Tile provider and tile content helpers
 app/src/main/...Complication*.kt Wear OS complication data source helpers
 app/src/test/...             JVM unit tests
 scripts/                     Build, ADB, screenshot, logcat, and loop helpers
+tools/                       Offline/reproducible data-generation helpers
 docs/                        Workflow and environment documentation
 .github/workflows/android.yml GitHub Actions unit-test and debug build workflow
 Dockerfile                   Reproducible Android SDK build image
@@ -394,6 +395,28 @@ ANDROID_SERIAL=WATCH_IP:ADB_PORT adb_cmd shell am start \
 See `docs/examples.md` for the full route list and runtime validation loop.
 See `docs/metro-madrid-nap.md` for NAP API key configuration.
 See `docs/emt-madrid-openapi.md` for EMT MobilityLabs credential configuration.
+
+## Transit catalog generation
+
+Madrid Wrist ships a committed generated catalog so normal builds do not need
+network access. The source of truth is official CRTM GTFS data from the CRTM
+open-data ArcGIS portal:
+
+```bash
+python3 tools/generate_transit_catalog.py
+```
+
+The generator downloads GTFS zips into ignored `artifacts/gtfs/` cache files and
+rewrites:
+
+```text
+app/src/main/java/com/arfipod/madridinyourwrist/transit/MadridGeneratedTransitCatalog.kt
+```
+
+Metro NAP and EMT OpenAPI options have live integrations. Metro Ligero and
+interurban bus options are currently catalog-only; they can be searched, saved,
+sorted by distance, and used for proximity triggers, but refreshes report `Solo
+catálogo GTFS` until a live or planned-schedule runtime is implemented.
 
 ## CI process
 

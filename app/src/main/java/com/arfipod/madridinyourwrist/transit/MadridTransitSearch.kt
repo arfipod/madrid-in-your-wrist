@@ -4,6 +4,8 @@ import java.text.Normalizer
 import java.util.Locale
 
 object MadridTransitSearch {
+    private val normalizedFieldsCache = mutableMapOf<String, NormalizedSearchFields>()
+
     fun search(
         options: List<MadridTransitOption>,
         query: String,
@@ -37,22 +39,54 @@ object MadridTransitSearch {
     }
 
     private fun MadridTransitOption.searchScore(terms: List<String>): Int {
-        val normalizedFields = searchFields().map { field -> field.normalizedSearchText() }
-        val haystack = normalizedFields.joinToString(" ")
-        if (terms.any { term -> term !in haystack }) return 0
+        val normalizedFields = normalizedSearchFields()
+        if (terms.any { term -> term !in normalizedFields.haystack }) return 0
 
         val termScore = terms.fold(0) { score, term ->
             score + when {
-                normalizedFields.any { field -> field == term } -> 40
-                normalizedFields.any { field -> field.startsWith(term) } -> 25
-                normalizedFields.any { field -> term in field } -> 15
+                normalizedFields.fields.any { field -> field == term } -> 40
+                normalizedFields.fields.any { field -> field.startsWith(term) } -> 25
+                normalizedFields.fields.any { field -> term in field } -> 15
                 else -> 5
             }
         }
-        val labelScore = normalizedFields.firstOrNull()?.let { label ->
+        val labelScore = normalizedFields.fields.firstOrNull()?.let { label ->
             if (terms.joinToString(" ") in label) 30 else 0
         } ?: 0
-        return termScore + labelScore
+        val primaryScore = terms.fold(0) { score, term ->
+            score + when {
+                normalizedFields.primaryFields.any { field -> field == term } -> 35
+                normalizedFields.primaryFields.any { field -> field.startsWith(term) } -> 25
+                normalizedFields.primaryFields.any { field -> term in field } -> 15
+                else -> 0
+            }
+        }
+        return termScore + labelScore + primaryScore
+    }
+
+    private fun MadridTransitOption.normalizedSearchFields(): NormalizedSearchFields = synchronized(normalizedFieldsCache) {
+        normalizedFieldsCache.getOrPut(id) {
+            val fields = searchFields().map { field -> field.normalizedSearchText() }
+            val primaryFields = primarySearchFields().map { field -> field.normalizedSearchText() }
+            NormalizedSearchFields(
+                fields = fields,
+                primaryFields = primaryFields,
+                haystack = fields.joinToString(" "),
+            )
+        }
+    }
+
+    private fun MadridTransitOption.primarySearchFields(): List<String> {
+        return listOfNotNull(
+            label,
+            detail,
+            metroTarget?.stopNameQuery,
+            metroTarget?.routeNameQuery,
+            metroTarget?.destinationQuery,
+            busTarget?.stopId,
+            busTarget?.lineId,
+            busTarget?.destination,
+        )
     }
 
     private fun MadridTransitOption.searchFields(): List<String> {
@@ -82,6 +116,12 @@ object MadridTransitSearch {
             )
         }.orEmpty()
 
-        return listOf(label, detail, kind.label) + searchAliases + metroFields + busFields
+        return listOf(label, detail, kind.label, source.label) + searchAliases + metroFields + busFields
     }
+
+    private data class NormalizedSearchFields(
+        val fields: List<String>,
+        val primaryFields: List<String>,
+        val haystack: String,
+    )
 }

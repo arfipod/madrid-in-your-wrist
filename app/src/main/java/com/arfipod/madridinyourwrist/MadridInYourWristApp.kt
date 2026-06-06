@@ -761,7 +761,7 @@ private fun MadridTransitPicker(
     val searchKind = options.firstOrNull()?.kind
     var query by remember { mutableStateOf("") }
     val visibleOptions = if (query.isBlank()) {
-        options
+        emptyList()
     } else {
         MadridTransitCatalog.searchOptions(
             query = query,
@@ -782,7 +782,7 @@ private fun MadridTransitPicker(
             onQueryChange = { nextQuery -> query = nextQuery },
         )
         if (visibleOptions.isEmpty()) {
-            EmptyBlock(text = "Sin resultados")
+            EmptyBlock(text = if (query.isBlank()) "Escribe para buscar" else "Sin resultados")
         } else {
             visibleOptions.forEach { option ->
                 OptionBlock(
@@ -1081,6 +1081,7 @@ private fun OptionBlock(
 ) {
     val detail = listOfNotNull(
         option.detail,
+        option.source.label.takeIf { !option.source.hasLiveArrivals },
         distanceMeters?.let { meters -> formatDistance(meters) },
     ).joinToString(" | ")
     Column(

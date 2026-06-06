@@ -342,7 +342,7 @@ class EmtMadridClient(
         connection.connectTimeout = 10_000
         connection.readTimeout = 15_000
         connection.requestMethod = method
-        connection.setRequestProperty("User-Agent", "wearos-playground")
+        connection.setRequestProperty("User-Agent", "madrid-in-your-wrist")
         headers.forEach { (name, value) -> connection.setRequestProperty(name, value) }
 
         if (body != null) {

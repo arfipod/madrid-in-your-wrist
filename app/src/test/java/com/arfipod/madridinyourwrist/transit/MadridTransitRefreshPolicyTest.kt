@@ -246,7 +246,7 @@ class MadridTransitRefreshPolicyTest {
     )
 
     private companion object {
-        const val BUS_ID = "bus_e3_daroca_valderrivas"
-        const val METRO_ID = "metro_l4_arguelles_pinar"
+        const val BUS_ID = "bus_emt_e3_1064_valderrivas"
+        const val METRO_ID = "metro_4_54_pinar_de_chamartin"
     }
 }

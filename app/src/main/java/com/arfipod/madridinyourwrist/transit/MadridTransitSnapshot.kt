@@ -242,7 +242,12 @@ internal fun Int.madridTransitBusRankMinutes(): Int = when {
 
 internal fun String.madridTransitShortRoute(): String {
     val firstToken = trim().substringBefore(" ").uppercase(Locale.ROOT)
-    return if (firstToken.startsWith("L")) firstToken else "L$firstToken"
+    return when {
+        firstToken.startsWith("L") -> firstToken
+        firstToken.startsWith("ML") -> firstToken
+        firstToken == "R" -> firstToken
+        else -> "L$firstToken"
+    }
 }
 
 private fun String.encoded(): String = URLEncoder.encode(this, StandardCharsets.UTF_8.name())

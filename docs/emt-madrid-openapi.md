@@ -15,7 +15,8 @@ Arrivals:            POST /v2/transport/busemtmad/stops/{stopId}/arrives/
 
 The direct EMT example targets stop `1064`, line `E3`, destination
 `VALDERRIVAS`. Madrid Wrist can load multiple EMT stop targets from
-`MadridTransitCatalog`.
+`MadridTransitCatalog`; the app catalog is generated from the official CRTM GTFS
+EMT feed.
 
 ## Configure Credentials
 

@@ -55,6 +55,13 @@ class MadridTransitRuntime(
     }
 
     private suspend fun loadFavorite(favorite: MadridTransitFavorite): MadridTransitLoadResult {
+        if (!favorite.option.source.hasLiveArrivals) {
+            return MadridTransitLoadResult.MissingConfig(
+                favorite = favorite,
+                message = "Solo catálogo GTFS",
+            )
+        }
+
         return when (favorite.option.kind) {
             MadridTransitKind.METRO -> loadMetro(favorite)
             MadridTransitKind.BUS -> loadBus(favorite)

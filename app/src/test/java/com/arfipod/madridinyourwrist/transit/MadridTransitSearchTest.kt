@@ -18,13 +18,13 @@ class MadridTransitSearchTest {
     @Test
     fun findsMetroByStationLineAndDestination() {
         assertEquals(
-            "metro_l4_arguelles_pinar",
+            "metro_4_54_pinar_de_chamartin",
             MadridTransitCatalog.searchOptions("arguelles l4 chamartin", kind = MadridTransitKind.METRO)
                 .first()
                 .id,
         )
         assertEquals(
-            "metro_l2_goya_las_rosas",
+            "metro_2_30_las_rosas",
             MadridTransitCatalog.searchOptions("Goya Las Rosas", kind = MadridTransitKind.METRO)
                 .first()
                 .id,
@@ -34,14 +34,42 @@ class MadridTransitSearchTest {
     @Test
     fun findsBusByStopIdStopAliasLineAndDestination() {
         assertEquals(
-            "bus_e3_daroca_valderrivas",
+            "bus_emt_e3_1064_valderrivas",
             MadridTransitCatalog.searchOptions("parada 1064 casalarreina e3", kind = MadridTransitKind.BUS)
                 .first()
                 .id,
         )
         assertEquals(
-            "bus_e3_felipe_valderrivas",
+            "bus_emt_e3_755_valderrivas",
             MadridTransitCatalog.searchOptions("755 Felipe II Valderrivas", kind = MadridTransitKind.BUS)
+                .first()
+                .id,
+        )
+    }
+
+    @Test
+    fun findsGeneratedOfficialMetroLightRailEmtAndInterurbanOptions() {
+        assertEquals(
+            "metro_1_12_valdecarros",
+            MadridTransitCatalog.searchOptions("sol l1 valdecarros", kind = MadridTransitKind.METRO)
+                .first()
+                .id,
+        )
+        assertEquals(
+            "metro_ligero_ml1_5_las_tablas",
+            MadridTransitCatalog.searchOptions("alvarez villaamil ml1 las tablas", kind = MadridTransitKind.METRO)
+                .first()
+                .id,
+        )
+        assertEquals(
+            "bus_emt_001_5135_moncloa",
+            MadridTransitCatalog.searchOptions("circulo bellas artes 001 moncloa", kind = MadridTransitKind.BUS)
+                .first()
+                .id,
+        )
+        assertEquals(
+            "bus_interurbano_421_08046_p_delicias_plaza_de_legazpi",
+            MadridTransitCatalog.searchOptions("alfaro iglesia 421 legazpi", kind = MadridTransitKind.BUS)
                 .first()
                 .id,
         )

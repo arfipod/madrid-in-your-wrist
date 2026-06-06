@@ -135,7 +135,7 @@ class NapMetroClient(
         connection.readTimeout = 30_000
         connection.requestMethod = "GET"
         connection.setRequestProperty("accept", accept)
-        connection.setRequestProperty("User-Agent", "wearos-playground")
+        connection.setRequestProperty("User-Agent", "madrid-in-your-wrist")
         if (includeApiKey) {
             connection.setRequestProperty("ApiKey", apiKey)
         }

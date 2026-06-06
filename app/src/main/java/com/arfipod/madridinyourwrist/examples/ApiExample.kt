@@ -46,7 +46,7 @@ class ApiExampleClient(
         connection.connectTimeout = 5_000
         connection.readTimeout = 5_000
         connection.requestMethod = "GET"
-        connection.setRequestProperty("User-Agent", "wearos-playground")
+        connection.setRequestProperty("User-Agent", "madrid-in-your-wrist")
 
         try {
             val responseCode = connection.responseCode

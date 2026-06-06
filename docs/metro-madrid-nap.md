@@ -129,5 +129,6 @@ unzip -p artifacts/nap-metro-1134.zip frequencies.txt | rg "4_I15-004"
 MetroMadridExample.kt        Direct Wear OS Compose example
 NapMetroSchedule.kt          NAP client, GTFS parser, schedule calculator
 NapMetroScheduleTest.kt      JVM tests for parser and next-departure logic
+transit/MadridGeneratedTransitCatalog.kt Searchable Metro options generated from CRTM GTFS
 transit/MadridTransitRuntime.kt Runtime integration used by Madrid Wrist
 ```

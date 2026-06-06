@@ -15,15 +15,39 @@ class MadridTransitCatalogTest {
     }
 
     @Test
-    fun selectablePlacesAreGenericProfilesWithLegacyIds() {
+    fun generatedOfficialCatalogIsAvailable() {
+        assertEquals(37_308, MadridGeneratedTransitCatalog.OPTION_COUNT)
+        assertTrue(MadridGeneratedTransitCatalog.options.size >= 37_000)
+        assertTrue(MadridTransitCatalog.metroOptions.size >= 590)
+        assertTrue(MadridTransitCatalog.busOptions.size >= 36_000)
+        assertTrue(MadridTransitCatalog.allOptions.size >= MadridGeneratedTransitCatalog.OPTION_COUNT)
+    }
+
+    @Test
+    fun generatedCatalogIncludesLiveAndStaticSources() {
+        val emt = requireNotNull(MadridTransitCatalog.optionById("bus_emt_001_5135_moncloa"))
+        val interurban = requireNotNull(
+            MadridTransitCatalog.optionById("bus_interurbano_421_08046_p_delicias_plaza_de_legazpi")
+        )
+        val lightRail = requireNotNull(MadridTransitCatalog.optionById("metro_ligero_ml1_5_las_tablas"))
+
+        assertEquals(MadridTransitSource.EMT_OPENAPI, emt.source)
+        assertTrue(emt.source.hasLiveArrivals)
+        assertEquals(MadridTransitSource.CRTM_STATIC_GTFS, interurban.source)
+        assertTrue(!interurban.source.hasLiveArrivals)
+        assertEquals(MadridTransitSource.CRTM_STATIC_GTFS, lightRail.source)
+    }
+
+    @Test
+    fun selectablePlacesAreGenericProfiles() {
         assertEquals(
             listOf(MadridTransitPlace.PROFILE_1, MadridTransitPlace.PROFILE_2, MadridTransitPlace.PROFILE_3),
             MadridTransitPlace.selectable,
         )
         assertEquals("Perfil 1", MadridTransitPlace.PROFILE_1.label)
         assertEquals("P2", MadridTransitPlace.PROFILE_2.shortLabel)
-        assertEquals(MadridTransitPlace.PROFILE_1, MadridTransitPlace.fromId("home"))
-        assertEquals(MadridTransitPlace.PROFILE_3, MadridTransitPlace.fromId("maria"))
+        assertEquals(null, MadridTransitPlace.fromId("home"))
+        assertEquals(null, MadridTransitPlace.fromId("maria"))
         assertEquals(MadridTransitPlace.PROFILE_2, MadridTransitPlace.fromId("profile_2"))
     }
 
@@ -45,27 +69,27 @@ class MadridTransitCatalogTest {
     fun favoritesCodecRoundTripsKnownOptionsAndDropsUnknownOnes() {
         val favorites = listOfNotNull(
             MadridTransitCatalog.favoriteFor(
-                optionId = "metro_l4_arguelles_pinar",
+                optionId = "metro_4_54_pinar_de_chamartin",
                 count = 3,
                 place = MadridTransitPlace.PROFILE_1,
             ),
             MadridTransitCatalog.favoriteFor(
-                optionId = "bus_e3_daroca_valderrivas",
+                optionId = "bus_emt_e3_1064_valderrivas",
                 count = 1,
                 place = MadridTransitPlace.PROFILE_2,
                 proximityTriggerMeters = 1000,
             ),
         )
         val raw = MadridTransitFavoritesCodec.encode(favorites) +
-            ";unknown,4,maria;metro_l4_arguelles_pinar,2,home"
+            ";unknown,4,profile_3;metro_4_54_pinar_de_chamartin,2,profile_1"
 
         val decoded = MadridTransitFavoritesCodec.decode(raw)
 
         assertEquals(2, decoded.size)
-        assertEquals("metro_l4_arguelles_pinar", decoded[0].option.id)
+        assertEquals("metro_4_54_pinar_de_chamartin", decoded[0].option.id)
         assertEquals(3, decoded[0].clampedCount)
         assertEquals(MadridTransitPlace.PROFILE_1, decoded[0].place)
-        assertEquals("bus_e3_daroca_valderrivas", decoded[1].option.id)
+        assertEquals("bus_emt_e3_1064_valderrivas", decoded[1].option.id)
         assertEquals(1, decoded[1].clampedCount)
         assertEquals(MadridTransitPlace.PROFILE_2, decoded[1].place)
         assertEquals(1000, decoded[1].normalizedProximityTriggerMeters)
@@ -73,7 +97,7 @@ class MadridTransitCatalogTest {
 
     @Test
     fun sameOptionCanBeSavedInDifferentPlaces() {
-        val raw = "metro_l4_arguelles_pinar,2,home;metro_l4_arguelles_pinar,1,work"
+        val raw = "metro_4_54_pinar_de_chamartin,2,profile_1;metro_4_54_pinar_de_chamartin,1,profile_2"
 
         val decoded = MadridTransitFavoritesCodec.decode(raw)
 
@@ -83,8 +107,8 @@ class MadridTransitCatalogTest {
     }
 
     @Test
-    fun legacyFavoritesWithoutPlaceDefaultToHome() {
-        val decoded = MadridTransitFavoritesCodec.decode("metro_l4_arguelles_pinar,3")
+    fun favoritesWithoutPlaceDefaultToFirstProfile() {
+        val decoded = MadridTransitFavoritesCodec.decode("metro_4_54_pinar_de_chamartin,3")
 
         assertEquals(1, decoded.size)
         assertEquals(MadridTransitPlace.PROFILE_1, decoded.single().place)
@@ -94,7 +118,7 @@ class MadridTransitCatalogTest {
     @Test
     fun proximityTriggerCyclesThroughSupportedRadii() {
         val favorite = requireNotNull(
-            MadridTransitCatalog.favoriteFor("metro_l4_arguelles_pinar")
+            MadridTransitCatalog.favoriteFor("metro_4_54_pinar_de_chamartin")
         )
 
         assertEquals(500, favorite.withNextProximityTrigger().normalizedProximityTriggerMeters)
@@ -116,7 +140,7 @@ class MadridTransitCatalogTest {
     fun proximityTriggerUsesDistanceWhenEnabled() {
         val favorite = requireNotNull(
             MadridTransitCatalog.favoriteFor(
-                optionId = "metro_l4_arguelles_pinar",
+                optionId = "metro_4_54_pinar_de_chamartin",
                 proximityTriggerMeters = 500,
             )
         )
@@ -150,7 +174,7 @@ class MadridTransitCatalogTest {
             limit = 2,
         )
 
-        assertEquals("metro_l2_goya_las_rosas", nearby.first().first.id)
-        assertTrue(nearby.first().second < nearby.last().second)
+        assertEquals("Goya L2", nearby.first().first.label)
+        assertTrue(nearby.first().second <= nearby.last().second)
     }
 }

@@ -6,7 +6,7 @@ services:
         ANDROID_PLATFORM: android-36
         ANDROID_BUILD_TOOLS: 35.0.0
         GRADLE_VERSION: 8.11.1
-    image: wearos-playground-dev:latest
+    image: madrid-in-your-wrist-dev:latest
     working_dir: /workspace
     volumes:
       - .:/workspace
