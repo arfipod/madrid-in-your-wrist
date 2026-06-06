@@ -1,57 +1,44 @@
-# Sensor logging experiments
+# Sensor Logging Experiments
 
-The first sensor experiment is deliberately small: the app can log accelerometer
-samples to `logcat` without adding new dependencies or background services.
+The repository keeps a small accelerometer logging helper for future opt-in
+experiments. The current Madrid Wrist launcher does not expose a sensor toggle.
 
-## Runtime behavior
+## Behavior
 
-The Compose UI includes a `SENSORS OFF` / `SENSORS ON` button.
+When a future screen wires the helper in, it should:
 
-When enabled, the app:
+- Register `Sensor.TYPE_ACCELEROMETER`.
+- Log one formatted sample per second with the `WearLoop` tag.
+- Log start, stop, unavailable sensor, and accuracy changes.
+- Stop listening when the owning screen or feature is disposed.
 
-- Registers a listener for `Sensor.TYPE_ACCELEROMETER`.
-- Logs one formatted sample per second with the `WearLoop` tag.
-- Logs sensor start, stop, availability, and accuracy changes.
-- Stops listening when the Activity is destroyed.
+Accelerometer logging does not require a runtime permission. Future sensors
+should document permissions and power cost before being exposed.
 
-Accelerometer logging does not require a runtime permission. Keep future sensor
-experiments equally explicit about their permissions and power cost.
-
-## Verification
-
-Build, install, and launch:
-
-```bash
-source ./scripts/common.sh
-./gradlew --no-daemon :app:assembleDebug
-ANDROID_SERIAL=WATCH_IP:ADB_PORT ./scripts/install-watch.sh
-ANDROID_SERIAL=WATCH_IP:ADB_PORT ./scripts/launch-watch.sh
-```
-
-Tap `SENSORS OFF` on the watch, then inspect logs:
-
-```bash
-ANDROID_SERIAL=WATCH_IP:ADB_PORT ./scripts/logcat-watch.sh
-```
-
-Expected log lines include:
+Expected log shape:
 
 ```text
 WearLoop: Sensor experiment started: ...
 WearLoop: Accelerometer t=...ms x=... y=... z=... |g|=...
-```
-
-Tap `SENSORS ON` again to stop logging:
-
-```text
 WearLoop: Sensor experiment stopped
 ```
 
-## Code map
+## Code Map
 
-- `SensorExperimentLogger.kt`: Android `SensorEventListener` wrapper.
-- `SensorSampleFormatter.kt`: pure formatter used by the logger.
-- `SensorSampleFormatterTest.kt`: JVM tests for stable formatting.
+```text
+SensorExperimentLogger.kt      Android SensorEventListener wrapper
+SensorSampleFormatter.kt       Pure formatter used by the logger
+SensorSampleFormatterTest.kt   JVM tests for stable formatting
+```
 
-Keep formatting and throttling testable before adding more sensors.
+## Verify
 
+The helper is covered by JVM tests:
+
+```bash
+source ./scripts/common.sh
+./gradlew --no-daemon :app:testDebugUnitTest
+```
+
+Runtime verification requires a screen or explicit route that starts
+`SensorExperimentLogger`; Madrid Wrist does not currently start it.

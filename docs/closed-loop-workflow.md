@@ -1,97 +1,69 @@
-# Closed-loop workflow
+# Closed-Loop Workflow
 
-The intended loop is:
+Use this page when you only need the command loop. Use
+[`engineering-handbook.md`](engineering-handbook.md) for the full operating
+manual.
 
-```text
-edit code
-→ build APK
-→ install on watch
-→ launch
-→ screenshot
-→ logcat
-→ iterate
-```
-
-## Full loop
+## Required First Check
 
 ```bash
-./scripts/loop.sh
+./scripts/doctor.sh
 ```
 
-The default loop builds with Docker. If Docker is not available in the current
-shell, use the local Gradle wrapper:
+The expected target is a Pixel Watch 3 in `device` state. If more than one ADB
+target is visible, pass `ANDROID_SERIAL` explicitly in every device command.
 
-```bash
-BUILD_MODE=local ./scripts/loop.sh
-```
+## Full Loop
 
-## Manual loop
-
-```bash
-./scripts/docker-build-apk.sh
-./scripts/install-watch.sh
-./scripts/launch-watch.sh
-./scripts/screenshot-watch.sh
-./scripts/logcat-watch.sh
-```
-
-Compare screenshots after capture:
-
-```bash
-./scripts/compare-screenshot.sh BASELINE_PNG ACTUAL_PNG
-```
-
-Set `SCREENSHOT_COMPARE_MAX_DIFF_PIXELS` to allow small rendering differences.
-
-For local builds without Docker:
-
-```bash
-./scripts/gradle-build-local.sh
-```
-
-For a specific connected watch or emulator:
+Docker build, install, launch, and screenshot:
 
 ```bash
 ANDROID_SERIAL=WATCH_IP:ADB_PORT ./scripts/loop.sh
 ```
 
-The install, launch, screenshot, logcat, and bugreport scripts now check that
-the selected ADB target is in the `device` state before running.
-
-The launch and screenshot steps also send `KEYCODE_WAKEUP` before interacting
-with the watch. Override the screenshot wait if the display needs more time:
+Local Gradle build instead of Docker:
 
 ```bash
-SCREENSHOT_WAKE_DELAY_SECONDS=2 ./scripts/screenshot-watch.sh
+BUILD_MODE=local ANDROID_SERIAL=WATCH_IP:ADB_PORT ./scripts/loop.sh
 ```
 
-For unit test verification:
+## Manual Loop
+
+```bash
+./scripts/docker-build-apk.sh
+ANDROID_SERIAL=WATCH_IP:ADB_PORT ./scripts/install-watch.sh
+ANDROID_SERIAL=WATCH_IP:ADB_PORT ./scripts/launch-watch.sh
+ANDROID_SERIAL=WATCH_IP:ADB_PORT ./scripts/screenshot-watch.sh
+ANDROID_SERIAL=WATCH_IP:ADB_PORT ./scripts/logcat-watch.sh
+```
+
+For local builds:
+
+```bash
+./scripts/gradle-build-local.sh
+```
+
+## Tests
 
 ```bash
 source ./scripts/common.sh
-./gradlew --no-daemon :app:testDebugUnitTest
+./gradlew --no-daemon :app:testDebugUnitTest :app:assembleDebug
 ```
 
-## What Codex should modify first
+## Screenshot Comparison
 
-Recommended first tasks:
-
-1. Improve the UI layout while keeping it dependency-light.
-2. Add a Compose for Wear OS variant.
-3. Add one health/sensor read experiment behind a feature flag.
-4. Add screenshot capture after every successful launch.
-5. Add a small testable domain module before growing UI complexity.
-
-## Artifact policy
-
-Runtime outputs should go under:
-
-```text
-artifacts/
-├── screenshots/
-├── screenshot-diffs/
-├── bugreports/
-└── logs/
+```bash
+./scripts/compare-screenshot.sh BASELINE_PNG ACTUAL_PNG
+SCREENSHOT_COMPARE_MAX_DIFF_PIXELS=25 ./scripts/compare-screenshot.sh BASELINE_PNG ACTUAL_PNG
 ```
 
-`artifacts/` is ignored by Git.
+Install ImageMagick for pixel metrics and visual diff images.
+
+## Script Behavior
+
+- Device scripts source `scripts/common.sh`.
+- `ANDROID_SERIAL` selects the watch or emulator.
+- ADB scripts fail early unless the selected target is in `device` state.
+- Launch and screenshot scripts wake the display first.
+- `SCREENSHOT_WAKE_DELAY_SECONDS` controls screenshot wait time.
+- Runtime outputs are written under `artifacts/`, which is ignored by Git.

@@ -7,7 +7,8 @@ run.
 
 ## Project purpose
 
-`wearos_playground` is a small Wear OS app used to validate a fast closed loop:
+`madrid-in-your-wrist` is a small Wear OS app used to validate a fast closed
+loop around the `Madrid Wrist` transport dashboard:
 
 ```text
 edit Kotlin/Android code
@@ -19,9 +20,9 @@ edit Kotlin/Android code
 -> iterate
 ```
 
-The repository should stay dependency-light until the closed loop is stable.
-Avoid adding large frameworks, architecture layers, services, background work,
-or sensor integrations unless the current task explicitly asks for them.
+Keep the repository dependency-light and preserve the closed loop. Avoid adding
+large frameworks, services, background work, or sensor integrations unless the
+current task explicitly asks for them.
 
 ## Stable identifiers
 
@@ -29,10 +30,10 @@ Keep these identifiers consistent across Gradle, source files, tests, and
 scripts:
 
 ```text
-Namespace:      com.arfipod.wearosplayground
-Application ID: com.arfipod.wearosplayground
-Debug app ID:   com.arfipod.wearosplayground.debug
-Main Activity:  com.arfipod.wearosplayground.MainActivity
+Namespace:      com.arfipod.madridinyourwrist
+Application ID: com.arfipod.madridinyourwrist
+Debug app ID:   com.arfipod.madridinyourwrist.debug
+Main Activity:  com.arfipod.madridinyourwrist.MainActivity
 Logcat tag:     WearLoop
 ```
 
@@ -282,14 +283,23 @@ transit refreshes complete or fail.
 Madrid Wrist should prefer live API data only when validated internet is
 available. When offline, or when a refresh fails, preserve and render the latest
 stored snapshot for the selected profile instead of deleting useful cached data.
+Automatic refreshes should also avoid unnecessary work: use a complete snapshot
+saved within the last 3 minutes, and skip automatic API calls for proximity
+triggered favorites that are outside their selected radius. Tapping `↻` remains
+the explicit live refresh path. Madrid Wrist should use last-known location only
+and throttle automatic proximity checks; do not add continuous location tracking
+for this flow. Keep that online/offline/battery decision logic in
+`MadridTransitRefreshPolicy` so it can be checked with JVM unit tests instead of
+being coupled to Compose rendering.
 
-## Tiles baseline
+## Madrid Wrist Tile
 
 The app registers `WearLoopTileService` as a Wear OS tile provider. It renders a
 small ProtoLayout Material 3 tile backed by the last cached Madrid transit
 snapshot for the selected profile. The Activity performs Metro/EMT refreshes;
 the tile only reads the snapshot so tile rendering stays deterministic and
-network-free.
+network-free. Keep its regular freshness interval modest because cache-only
+Tile rendering should not wake the device frequently.
 
 Code map:
 
@@ -303,7 +313,7 @@ Tiles are not activities. Install the APK, then add the tile from the watch or
 paired phone tile picker. Android Studio's Wear OS Tile run/debug configuration
 can deploy and activate the tile during active development.
 
-## Complications baseline
+## Madrid Wrist Complication
 
 The app registers `WearLoopComplicationService` as a `SHORT_TEXT` complication
 data source. It exposes a compact cached Madrid transit headline such as
@@ -320,10 +330,10 @@ ic_complication_wear_loop.xml         Monochrome picker icon
 ```
 
 Complication data sources are not activities. Install the APK, then select
-`Madrid Wrist` in a watch face complication picker. The update period is 300
-seconds, the minimum regular interval enforced by the platform.
+`Madrid Wrist` in a watch face complication picker. The update period is 900
+seconds so cache-only complication updates stay battery-friendly.
 
-## Sensor logging experiment
+## Sensor Logging Experiment
 
 The repository still includes a minimal accelerometer logging experiment helper,
 but the Madrid Wrist launcher no longer exposes it from the home screen. Reusing
@@ -357,7 +367,7 @@ SensorSampleFormatterTest.kt   JVM tests for stable formatting
 The app keeps compact examples under:
 
 ```text
-app/src/main/java/com/arfipod/wearosplayground/examples/
+app/src/main/java/com/arfipod/madridinyourwrist/examples/
 ```
 
 Examples:
@@ -483,14 +493,25 @@ ANDROID_SERIAL=WATCH_IP:ADB_PORT adb_cmd shell am start -n "$APP_ID/$MAIN_ACTIVI
 Expected debug component:
 
 ```text
-com.arfipod.wearosplayground.debug/com.arfipod.wearosplayground.MainActivity
+com.arfipod.madridinyourwrist.debug/com.arfipod.madridinyourwrist.MainActivity
+```
+
+### Local Gradle hits root-owned Docker outputs
+
+Docker builds can leave generated files under `app/build` owned by root. If a
+later local Gradle build fails with `AccessDeniedException`, return ownership to
+the local user:
+
+```bash
+docker compose run --rm --user root dev \
+  chown -R "$(id -u):$(id -g)" /workspace/app/build
 ```
 
 ## Change guidelines
 
 When changing the app:
 
-- Keep the package under `com.arfipod.wearosplayground`.
+- Keep the package under `com.arfipod.madridinyourwrist`.
 - Keep the `WearLoop` log tag unless intentionally replacing the logging flow.
 - Keep `scripts/` compatible with `ANDROID_SERIAL`.
 - Keep runtime outputs under `artifacts/`.

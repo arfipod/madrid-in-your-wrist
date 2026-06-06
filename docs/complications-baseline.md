@@ -1,73 +1,57 @@
-# Complications baseline
+# Madrid Wrist Complication
 
-The app includes a Wear OS complication data source for Madrid Wrist. It exposes
-raw `SHORT_TEXT` data to compatible watch faces; the watch face remains
-responsible for rendering that data. The Activity is the only surface that
-refreshes Metro and EMT data, and the complication reads the last cached snapshot
-for the selected profile.
+The app includes a Wear OS `SHORT_TEXT` complication data source for Madrid
+Wrist. The Activity is the only surface that refreshes Metro and EMT data; the
+complication reads the last cached snapshot for the selected profile.
 
-## Runtime behavior
+## Behavior
 
-When cached data is available, the complication data source returns:
+With cached data:
 
-- Short text: a compact headline such as `E3 4m`.
-- Short title: the profile, such as `P1`.
-- Content description: a fuller Madrid Wrist transit description with the cached
-  update time.
+```text
+Short text:        E3 4m
+Short title:       P1
+Description:       Madrid Wrist transit summary with cached update time
+Update interval:   900 seconds
+```
 
-Without cached data, it returns `MAD` plus the selected profile when available,
-and a build-timestamp fallback in the content description.
+Without cached data, it returns `MAD`, the selected profile when available, and
+a build-timestamp fallback in the content description.
 
-The update period is 300 seconds, which is the minimum regular update interval
-recommended by the platform for battery-friendly complication polling.
+The app only provides raw complication data. Watch faces decide how to render it.
 
-## Code map
+## Code Map
 
 ```text
 WearLoopComplicationService.kt        Data source service
 WearLoopComplicationContent.kt        Testable strings and update interval
-WearLoopComplicationContentTest.kt    JVM tests for cached and fallback text
+WearLoopComplicationContentTest.kt    JVM tests
 transit/MadridTransitSnapshot.kt      Cached next-arrival snapshot model and codec
 ic_complication_wear_loop.xml         Monochrome picker icon
 ```
 
-## Dependencies
-
-The data source uses AndroidX Watch Face complication APIs:
+## Dependency
 
 ```kotlin
 implementation("androidx.wear.watchface:watchface-complications-data-source-ktx:1.3.0")
 ```
 
-This app is not implementing a watch face. It only provides data that compatible
-watch faces can select.
-
-## Build verification
+## Verify
 
 ```bash
 source ./scripts/common.sh
 ./gradlew --no-daemon :app:testDebugUnitTest :app:assembleDebug
-```
-
-## Device verification
-
-Install the app on the watch:
-
-```bash
 ANDROID_SERIAL=WATCH_IP:ADB_PORT ./scripts/install-watch.sh
 ```
 
-Then choose a watch face that supports `SHORT_TEXT` complications and select the
-`Madrid Wrist` data source from the complication picker.
+Then choose a watch face that supports `SHORT_TEXT` complications and select
+`Madrid Wrist` from the complication picker.
 
-Expected data source metadata:
+Expected provider metadata:
 
 ```text
 Label: Madrid Wrist
 Supported type: SHORT_TEXT
-Update period: 300 seconds
-Service: com.arfipod.wearosplayground.WearLoopComplicationService
+Update period: 900 seconds
+Service: com.arfipod.madridinyourwrist.WearLoopComplicationService
 ```
-
-Complication data sources are not launched like activities. They are requested
-by the Wear OS system when a watch face slot uses them.

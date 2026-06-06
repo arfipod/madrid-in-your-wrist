@@ -1,15 +1,15 @@
 # Agent guide
 
-This repository is a minimal Wear OS closed-loop playground. Prefer small,
-reversible changes that keep the build, ADB Wi-Fi install, launch, screenshot,
-and logcat loop working.
+This repository is a Wear OS closed-loop workspace for Madrid Wrist. Prefer
+small, reversible changes that keep the build, ADB Wi-Fi install, launch,
+screenshot, and logcat loop working.
 
 ## Non-negotiable project facts
 
 ```text
-Package/namespace: com.arfipod.wearosplayground
-Debug app ID:     com.arfipod.wearosplayground.debug
-Main Activity:    com.arfipod.wearosplayground.MainActivity
+Package/namespace: com.arfipod.madridinyourwrist
+Debug app ID:     com.arfipod.madridinyourwrist.debug
+Main Activity:    com.arfipod.madridinyourwrist.MainActivity
 Logcat tag:       WearLoop
 Target device:    Pixel Watch 3 / Wear OS 6.1
 ```

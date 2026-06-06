@@ -1,4 +1,4 @@
-# Docker Android SDK environment
+# Docker Android SDK Environment
 
 The Docker image contains:
 
@@ -31,9 +31,21 @@ If Docker is not available in the current WSL shell, run:
 ./scripts/gradle-build-local.sh
 ```
 
+## Local permissions after Docker builds
+
+Docker can leave generated files in `app/build` owned by root. If a later local
+Gradle build fails with `AccessDeniedException`, fix ownership from the repo
+root:
+
+```bash
+docker compose run --rm --user root dev \
+  chown -R "$(id -u):$(id -g)" /workspace/app/build
+```
+
 ## Why the emulator is not inside Docker
 
-The Android emulator depends heavily on host virtualization and GPU acceleration. For WSL-based development, the most robust setup is:
+The Android emulator depends heavily on host virtualization and GPU acceleration.
+For WSL-based development, the most robust setup is:
 
 - Docker: reproducible builds.
 - Android Studio on Windows: SDK manager and emulator/device manager.

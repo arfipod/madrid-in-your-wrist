@@ -2,8 +2,8 @@
 set -euo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-APP_ID="com.arfipod.wearosplayground.debug"
-MAIN_ACTIVITY="com.arfipod.wearosplayground.MainActivity"
+APP_ID="com.arfipod.madridinyourwrist.debug"
+MAIN_ACTIVITY="com.arfipod.madridinyourwrist.MainActivity"
 APK_PATH="$PROJECT_ROOT/app/build/outputs/apk/debug/app-debug.apk"
 ARTIFACTS_DIR="$PROJECT_ROOT/artifacts"
 

@@ -1,4 +1,4 @@
-# Pixel Watch 3 setup for ADB Wi-Fi
+# Pixel Watch 3 ADB Wi-Fi Setup
 
 This repository assumes the real watch is connected through ADB wireless debugging.
 
@@ -55,6 +55,7 @@ When more than one device or emulator is visible, select the watch explicitly:
 ```bash
 ANDROID_SERIAL=WATCH_IP:ADB_PORT ./scripts/install-watch.sh
 ANDROID_SERIAL=WATCH_IP:ADB_PORT ./scripts/launch-watch.sh
+ANDROID_SERIAL=WATCH_IP:ADB_PORT ./scripts/screenshot-watch.sh
 ```
 
 ## 5. Common issues
@@ -71,8 +72,10 @@ adb connect WATCH_IP:ADB_PORT
 
 ### Device not visible from WSL
 
-Use ADB Wi-Fi instead of USB. WSL often does not expose USB devices unless `usbipd-win` is configured.
+Use ADB Wi-Fi instead of USB. WSL often does not expose USB devices unless
+`usbipd-win` is configured.
 
 ### Multiple ADB servers
 
-Avoid running different ADB servers from Windows and WSL at the same time. Pick one shell as the source of truth for device control.
+Avoid running different ADB servers from Windows and WSL at the same time. Pick
+one shell as the source of truth for device control.

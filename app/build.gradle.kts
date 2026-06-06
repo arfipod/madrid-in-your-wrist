@@ -7,11 +7,11 @@ plugins {
 }
 
 android {
-    namespace = "com.arfipod.wearosplayground"
+    namespace = "com.arfipod.madridinyourwrist"
     compileSdk = providers.gradleProperty("android.compileSdk").get().toInt()
 
     defaultConfig {
-        applicationId = "com.arfipod.wearosplayground"
+        applicationId = "com.arfipod.madridinyourwrist"
         minSdk = providers.gradleProperty("android.minSdk").get().toInt()
         targetSdk = providers.gradleProperty("android.targetSdk").get().toInt()
         versionCode = 1

@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "wearos_playground"
+rootProject.name = "madrid_in_your_wrist"
 include(":app")

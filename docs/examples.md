@@ -1,9 +1,9 @@
-# Examples Gallery
+# Developer Examples
 
 The app includes a compact examples gallery under:
 
 ```text
-app/src/main/java/com/arfipod/wearosplayground/examples/
+app/src/main/java/com/arfipod/madridinyourwrist/examples/
 ```
 
 The launcher opens `Madrid Wrist`. Examples remain available as direct developer
@@ -32,7 +32,7 @@ video
 
 Captured from the installed debug app on Wear OS targets.
 
-![Legacy Madrid Wrist examples home](images/examples/wear-home.png)
+![Developer examples home](images/examples/wear-home.png)
 
 ## Included Examples
 
@@ -86,8 +86,8 @@ ANDROID_SERIAL=WATCH_IP:ADB_PORT adb_cmd shell am start \
   --es example metro
 ```
 
-See `docs/metro-madrid-nap.md` for the account/key flow and implementation
-notes.
+See [`metro-madrid-nap.md`](metro-madrid-nap.md) for the account/key flow and
+implementation notes.
 
 ![Metro Madrid example](images/examples/wear-metro.png)
 
@@ -138,8 +138,9 @@ ANDROID_SERIAL=WATCH_IP:ADB_PORT adb_cmd shell am start \
   --es example emt
 ```
 
-See `docs/emt-madrid-openapi.md` for registration, build configuration, emulator
-validation, logcat, screenshots, and troubleshooting notes.
+See [`emt-madrid-openapi.md`](emt-madrid-openapi.md) for registration, build
+configuration, runtime validation, logcat, screenshots, and troubleshooting
+notes.
 
 ![EMT E3 example](images/examples/wear-emt.png)
 

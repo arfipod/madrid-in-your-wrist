@@ -1,4 +1,4 @@
-# Screenshot comparison
+# Screenshot Comparison
 
 This repository supports lightweight screenshot comparison for the closed loop.
 The comparison script is intentionally outside Gradle so it can be used against
@@ -48,7 +48,7 @@ If ImageMagick is not installed, the script still passes for exact byte-identica
 files using `cmp`. If files differ, it exits with an instruction to install
 ImageMagick for proper pixel metrics.
 
-## Suggested workflow
+## Suggested Workflow
 
 1. Capture a known-good watch screenshot.
 2. Keep the baseline somewhere stable outside `artifacts/`, because
@@ -60,11 +60,10 @@ Example:
 
 ```bash
 mkdir -p docs/baselines
-cp artifacts/screenshots/watch-YYYYMMDD-HHMMSS.png docs/baselines/hello-watch.png
+cp artifacts/screenshots/watch-YYYYMMDD-HHMMSS.png docs/baselines/madrid-wrist.png
 
 ANDROID_SERIAL=WATCH_IP:ADB_PORT ./scripts/screenshot-watch.sh
 ./scripts/compare-screenshot.sh \
-  docs/baselines/hello-watch.png \
+  docs/baselines/madrid-wrist.png \
   artifacts/screenshots/watch-YYYYMMDD-HHMMSS.png
 ```
-

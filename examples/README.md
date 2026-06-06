@@ -1,9 +1,9 @@
-# Wear OS Examples
+# Developer Examples
 
-This folder documents the examples implemented in the app source package:
+This folder documents the direct developer examples implemented in:
 
 ```text
-app/src/main/java/com/arfipod/wearosplayground/examples/
+app/src/main/java/com/arfipod/madridinyourwrist/examples/
 ```
 
 The gallery currently includes:
@@ -18,13 +18,12 @@ audio   Platform ToneGenerator playback
 video   Platform VideoView playback of a small MP4
 ```
 
-The normal launcher now opens `Madrid Wrist`. These examples remain available as
-direct developer routes with the `example` intent extra documented in
-`docs/examples.md`.
+The normal launcher opens `Madrid Wrist`. Examples remain available through the
+`example` intent extra documented in [`docs/examples.md`](../docs/examples.md).
 
 ## Screenshots
 
-![Legacy examples home](../docs/images/examples/wear-home.png)
+![Developer examples home](../docs/images/examples/wear-home.png)
 
 ![Flappy Bird](../docs/images/examples/wear-flappy.png)
 
