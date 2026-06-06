@@ -30,6 +30,7 @@ data class MadridTransitSnapshot(
 data class MadridTransitSnapshotItem(
     val optionId: String,
     val kind: MadridTransitKind,
+    val source: MadridTransitSource = MadridTransitSource.defaultFor(kind),
     val place: MadridTransitPlace,
     val optionLabel: String,
     val detail: String,
@@ -143,6 +144,7 @@ object MadridTransitSnapshotCodec {
                 item.destination,
                 item.timeLabel,
                 item.rankMinutes.toString(),
+                item.source.name,
             ).joinToString(FIELD_SEPARATOR) { field -> field.encoded() }
         }
         return (listOf(header) + items).joinToString(LINE_SEPARATOR)
@@ -165,9 +167,13 @@ object MadridTransitSnapshotCodec {
             } ?: return@mapNotNull null
             val place = MadridTransitPlace.fromId(parts.getOrNull(2)) ?: MadridTransitPlace.DEFAULT
             val rank = parts.getOrNull(8)?.toIntOrNull() ?: return@mapNotNull null
+            val source = parts.getOrNull(9)?.let { value ->
+                runCatching { MadridTransitSource.valueOf(value) }.getOrNull()
+            } ?: MadridTransitSource.defaultFor(kind)
             MadridTransitSnapshotItem(
                 optionId = parts.getOrNull(0).orEmpty(),
                 kind = kind,
+                source = source,
                 place = place,
                 optionLabel = parts.getOrNull(3).orEmpty(),
                 detail = parts.getOrNull(4).orEmpty(),
@@ -191,6 +197,7 @@ internal fun MadridTransitLoadResult.toSnapshotItem(): MadridTransitSnapshotItem
         MadridTransitSnapshotItem(
             optionId = favorite.option.id,
             kind = MadridTransitKind.METRO,
+            source = favorite.option.source,
             place = favorite.place,
             optionLabel = favorite.option.label,
             detail = favorite.option.detail,
@@ -205,6 +212,7 @@ internal fun MadridTransitLoadResult.toSnapshotItem(): MadridTransitSnapshotItem
         MadridTransitSnapshotItem(
             optionId = favorite.option.id,
             kind = MadridTransitKind.BUS,
+            source = favorite.option.source,
             place = favorite.place,
             optionLabel = favorite.option.label,
             detail = favorite.option.detail,

@@ -1,8 +1,8 @@
 # Madrid Wrist
 
-`Madrid Wrist` is the product surface of this repository. The app still keeps
-the closed-loop Wear OS build/install/screenshot workflow, but the launcher now
-opens a transport dashboard instead of the developer examples gallery.
+`Madrid Wrist` is the product surface of this repository. The app keeps the
+closed-loop Wear OS build/install/screenshot workflow and the launcher opens the
+transport dashboard directly.
 
 ## Behavior
 
@@ -17,7 +17,9 @@ The watch app can be operated entirely from Wear OS:
 - Opens the Wear OS keyboard for text search and matches the local catalog by
   station, stop, stop ID, line, destination, and aliases without requiring
   accents.
-- Uses Metro de Madrid line colors for Metro labels and top glance highlights.
+- Uses transport-aware colors for labels, result lines, and top glance
+  highlights: Metro/Metro Ligero line colors, EMT blue, and interurban green,
+  with brighter text variants for the dark watch UI.
 - Lets each favorite choose how many upcoming departures or arrivals to show, but
   keeps count/delete controls behind an explicit `EDIT` mode to make the default
   path glance-first.
@@ -158,23 +160,32 @@ Captured from the installed debug APK on a real Pixel Watch 3.
 
 ![Madrid Wrist home top](images/madrid-wrist/home-top.png)
 
-![Madrid Wrist favorites controls](images/madrid-wrist/home-favorites.png)
+![Madrid Wrist cached home](images/madrid-wrist/home-cache.png)
 
-![Madrid Wrist add actions](images/madrid-wrist/home-actions.png)
+![Madrid Wrist actions and favorites](images/madrid-wrist/actions-favorites.png)
 
-![Madrid Wrist expanded actions](images/madrid-wrist/home-actions-expanded.png)
+![Madrid Wrist edit controls](images/madrid-wrist/edit-controls.png)
 
-![Madrid Wrist nearby list](images/madrid-wrist/nearby-list.png)
+![Madrid Wrist nearby results](images/madrid-wrist/nearby-results.png)
+
+![Madrid Wrist search results](images/madrid-wrist/search-results.png)
+
+![Madrid Wrist add Metro](images/madrid-wrist/add-metro.png)
+
+![Madrid Wrist add Bus](images/madrid-wrist/add-bus.png)
 
 ## Code Map
 
 ```text
-MainActivity.kt                    Launcher and direct example-route bridge
+MainActivity.kt                    Launcher for Madrid Wrist
 MadridInYourWristApp.kt            Wear OS Compose product UI
 transit/MadridTransitModels.kt     Catalog, profiles, favorites, counts, distance sorting
 transit/MadridGeneratedTransitCatalog.kt Generated official GTFS catalog index
+transit/MadridTransitColors.kt     Metro, EMT, and interurban text/brand colors
 transit/MadridMetroLineColors.kt   Metro, Ramal, and Metro Ligero color palette
 transit/MadridTransitSearch.kt     Accent-insensitive station/stop/line matcher
+transit/MadridMetroSchedule.kt     NAP client, GTFS parser, schedule calculator
+transit/MadridEmtTransit.kt        EMT OpenAPI client and arrival parser
 transit/MadridTransitStore.kt      SharedPreferences favorites/profile persistence
 transit/MadridTransitSnapshot.kt   Cached next-arrival snapshot for Activity, Tile, complication
 transit/MadridTransitRefreshPolicy.kt Online/offline cache decision policy
@@ -202,13 +213,4 @@ ANDROID_SERIAL=WATCH_IP:ADB_PORT ./scripts/install-watch.sh
 ANDROID_SERIAL=WATCH_IP:ADB_PORT ./scripts/launch-watch.sh
 ANDROID_SERIAL=WATCH_IP:ADB_PORT ./scripts/screenshot-watch.sh
 ANDROID_SERIAL=WATCH_IP:ADB_PORT ./scripts/logcat-watch.sh
-```
-
-Direct example routes still work for development:
-
-```bash
-source ./scripts/common.sh
-ANDROID_SERIAL=WATCH_IP:ADB_PORT adb_cmd shell am start \
-  -n "$APP_ID/$MAIN_ACTIVITY" \
-  --es example metro
 ```

@@ -58,7 +58,27 @@ ANDROID_SERIAL=WATCH_IP:ADB_PORT ./scripts/launch-watch.sh
 ANDROID_SERIAL=WATCH_IP:ADB_PORT ./scripts/screenshot-watch.sh
 ```
 
-## 5. Common issues
+## 5. Keep the session alive
+
+Wireless debugging can disappear during idle sessions. When you are actively
+working with the watch, keep one terminal running:
+
+```bash
+ANDROID_SERIAL=WATCH_IP:ADB_PORT ./scripts/keep-watch-adb-alive.sh
+```
+
+The default ping is every 25 seconds and does not wake the screen. If the watch
+is especially aggressive about sleeping during a session, use a shorter interval
+or an occasional wakeup:
+
+```bash
+ADB_KEEP_ALIVE_INTERVAL_SECONDS=15 ANDROID_SERIAL=WATCH_IP:ADB_PORT ./scripts/keep-watch-adb-alive.sh
+ADB_KEEP_ALIVE_WAKE_EVERY=20 ANDROID_SERIAL=WATCH_IP:ADB_PORT ./scripts/keep-watch-adb-alive.sh
+```
+
+Stop it with `Ctrl-C` when the session is over.
+
+## 6. Common issues
 
 ### `offline`
 

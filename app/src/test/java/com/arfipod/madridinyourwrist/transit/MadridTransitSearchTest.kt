@@ -16,6 +16,14 @@ class MadridTransitSearchTest {
     }
 
     @Test
+    fun queryReadinessAvoidsSingleLetterCatalogScansButAllowsNumbers() {
+        assertTrue(!MadridTransitSearch.isQueryReady("a"))
+        assertTrue(MadridTransitSearch.isQueryReady("go"))
+        assertTrue(MadridTransitSearch.isQueryReady("4"))
+        assertTrue(MadridTransitSearch.isQueryReady("1064"))
+    }
+
+    @Test
     fun findsMetroByStationLineAndDestination() {
         assertEquals(
             "metro_4_54_pinar_de_chamartin",
@@ -85,5 +93,12 @@ class MadridTransitSearchTest {
     @Test
     fun unknownQueryReturnsNoResults() {
         assertTrue(MadridTransitCatalog.searchOptions("no existe nada").isEmpty())
+    }
+
+    @Test
+    fun nonBlankSearchRespectsResultLimit() {
+        val results = MadridTransitCatalog.searchOptions("moncloa", kind = MadridTransitKind.BUS, limit = 3)
+
+        assertEquals(3, results.size)
     }
 }

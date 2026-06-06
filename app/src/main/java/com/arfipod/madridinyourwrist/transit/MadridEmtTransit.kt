@@ -1,4 +1,4 @@
-package com.arfipod.madridinyourwrist.examples
+package com.arfipod.madridinyourwrist.transit
 
 import java.io.IOException
 import java.net.HttpURLConnection

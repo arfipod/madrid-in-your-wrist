@@ -46,7 +46,6 @@ Current behavior to preserve:
 4. Online refresh when validated internet is available.
 5. Offline/cache fallback when network or APIs fail.
 6. Tile and complication read cached snapshots only.
-7. Direct ADB example routes still work.
 
 Expected output:
 - Focused code changes.

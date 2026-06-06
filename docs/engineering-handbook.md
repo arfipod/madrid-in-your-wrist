@@ -184,6 +184,18 @@ Or pass it per command:
 ANDROID_SERIAL=WATCH_IP:ADB_PORT ./scripts/launch-watch.sh
 ```
 
+To keep a wireless debugging session alive during an iteration block, run:
+
+```bash
+ANDROID_SERIAL=WATCH_IP:ADB_PORT ./scripts/keep-watch-adb-alive.sh
+```
+
+The keep-alive script sends `adb shell true` every 25 seconds, prints a heartbeat
+every few minutes, and does not wake the display by default. Use
+`ADB_KEEP_ALIVE_INTERVAL_SECONDS` to tune the ping interval and
+`ADB_KEEP_ALIVE_WAKE_EVERY` only when you explicitly want a wakeup every N
+successful pings.
+
 ## Closed-loop processes
 
 ### Full Docker loop
@@ -231,6 +243,7 @@ Important shared behavior:
 - `install-watch.sh` requires the debug APK to exist first.
 - `launch-watch.sh` sends `KEYCODE_WAKEUP` before launching the app.
 - `screenshot-watch.sh` sends `KEYCODE_WAKEUP`, waits, then captures PNG output.
+- `keep-watch-adb-alive.sh` keeps ADB Wi-Fi warm with lightweight shell pings.
 - Screenshot delay can be overridden with `SCREENSHOT_WAKE_DELAY_SECONDS`.
 - `compare-screenshot.sh` compares two PNGs and writes visual diffs when
   ImageMagick is installed.
@@ -363,38 +376,14 @@ SensorSampleFormatter.kt       Pure formatter for log output
 SensorSampleFormatterTest.kt   JVM tests for stable formatting
 ```
 
-## Examples gallery
+## Transit Runtime
 
-The app keeps compact examples under:
+The launcher opens Madrid Wrist directly. Earlier direct ADB demo routes have
+been removed; reusable Metro/EMT networking and parsing code now lives under
+`app/src/main/java/com/arfipod/madridinyourwrist/transit/`.
 
-```text
-app/src/main/java/com/arfipod/madridinyourwrist/examples/
-```
-
-Examples:
-
-```text
-flappy  Compose Canvas Flappy Bird-style game
-api     HttpURLConnection GET to https://api.github.com/zen
-metro   NAP/GTFS scheduled Metro de Madrid departure
-emt     EMT E3 realtime arrival at Felipe II toward Valderrivas
-3d      Software-projected rotating cube rendered in Compose Canvas
-audio   Platform ToneGenerator tone playback
-video   Platform VideoView streaming a small HTTPS MP4
-```
-
-Launch a specific example directly from ADB with:
-
-```bash
-source ./scripts/common.sh
-ANDROID_SERIAL=WATCH_IP:ADB_PORT adb_cmd shell am start \
-  -n "$APP_ID/$MAIN_ACTIVITY" \
-  --es example flappy
-```
-
-See `docs/examples.md` for the full route list and runtime validation loop.
-See `docs/metro-madrid-nap.md` for NAP API key configuration.
-See `docs/emt-madrid-openapi.md` for EMT MobilityLabs credential configuration.
+See `docs/metro-madrid-nap.md` for NAP API key configuration and
+`docs/emt-madrid-openapi.md` for EMT MobilityLabs credential configuration.
 
 ## Transit catalog generation
 

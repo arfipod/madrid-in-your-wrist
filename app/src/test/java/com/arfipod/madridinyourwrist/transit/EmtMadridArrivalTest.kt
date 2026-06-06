@@ -1,4 +1,4 @@
-package com.arfipod.madridinyourwrist.examples
+package com.arfipod.madridinyourwrist.transit
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull

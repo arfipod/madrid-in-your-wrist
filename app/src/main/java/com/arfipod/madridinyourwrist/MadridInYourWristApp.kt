@@ -43,14 +43,13 @@ import androidx.wear.compose.foundation.rotary.rotaryScrollable
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
-import com.arfipod.madridinyourwrist.examples.EmtBusArrival
-import com.arfipod.madridinyourwrist.examples.EmtMadridCredentials
-import com.arfipod.madridinyourwrist.examples.MetroDeparture
+import com.arfipod.madridinyourwrist.transit.EmtBusArrival
+import com.arfipod.madridinyourwrist.transit.EmtMadridCredentials
 import com.arfipod.madridinyourwrist.transit.MadridGeoPoint
-import com.arfipod.madridinyourwrist.transit.MadridMetroLineColors
 import com.arfipod.madridinyourwrist.transit.MadridLocationProvider
 import com.arfipod.madridinyourwrist.transit.MadridNetworkProvider
 import com.arfipod.madridinyourwrist.transit.MadridTransitCatalog
+import com.arfipod.madridinyourwrist.transit.MadridTransitColors
 import com.arfipod.madridinyourwrist.transit.MadridTransitCounts
 import com.arfipod.madridinyourwrist.transit.MadridTransitFavorite
 import com.arfipod.madridinyourwrist.transit.MadridTransitKind
@@ -62,10 +61,12 @@ import com.arfipod.madridinyourwrist.transit.MadridTransitRefreshDecision
 import com.arfipod.madridinyourwrist.transit.MadridTransitRefreshPolicy
 import com.arfipod.madridinyourwrist.transit.MadridTransitRefreshSource
 import com.arfipod.madridinyourwrist.transit.MadridTransitRuntime
+import com.arfipod.madridinyourwrist.transit.MadridTransitSearch
 import com.arfipod.madridinyourwrist.transit.MadridTransitSnapshot
 import com.arfipod.madridinyourwrist.transit.MadridTransitSnapshotItem
 import com.arfipod.madridinyourwrist.transit.MadridTransitSnapshotStore
 import com.arfipod.madridinyourwrist.transit.MadridTransitStore
+import com.arfipod.madridinyourwrist.transit.MetroDeparture
 import com.arfipod.madridinyourwrist.transit.distanceMeters
 import com.arfipod.madridinyourwrist.transit.madridTransitBusMinuteLabel
 import com.arfipod.madridinyourwrist.transit.madridTransitMinuteLabel
@@ -73,6 +74,9 @@ import com.arfipod.madridinyourwrist.transit.madridTransitShortRoute
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 
 private enum class MadridTransitScreen {
     HOME,
@@ -113,6 +117,16 @@ private data class MadridTransitRefreshTrigger(
 }
 
 private const val LOCATION_RECHECK_MILLIS = 10 * 60 * 1000L
+private const val SEARCH_DEBOUNCE_MILLIS = 180L
+private val SecondaryTextColor = Color(0xFFC7C7C7)
+private val FailureTextColor = Color(0xFFFF8A80)
+
+private sealed interface TransitSearchState {
+    data object Blank : TransitSearchState
+    data object TooShort : TransitSearchState
+    data object Loading : TransitSearchState
+    data class Loaded(val results: List<MadridTransitOption>) : TransitSearchState
+}
 
 @Composable
 fun MadridInYourWristApp(
@@ -413,7 +427,7 @@ fun MadridInYourWristApp(
                 MadridTransitScreen.ADD_METRO -> MadridTransitPicker(
                     title = "Metro",
                     place = selectedPlace,
-                    options = MadridTransitCatalog.metroOptions,
+                    kind = MadridTransitKind.METRO,
                     favorites = favorites,
                     onAdd = ::addOption,
                     onBack = { screen = MadridTransitScreen.HOME },
@@ -421,7 +435,7 @@ fun MadridInYourWristApp(
                 MadridTransitScreen.ADD_BUS -> MadridTransitPicker(
                     title = "Bus",
                     place = selectedPlace,
-                    options = MadridTransitCatalog.busOptions,
+                    kind = MadridTransitKind.BUS,
                     favorites = favorites,
                     onAdd = ::addOption,
                     onBack = { screen = MadridTransitScreen.HOME },
@@ -672,7 +686,7 @@ private fun NextGlanceBlock(
                 Text(
                     modifier = Modifier.fillMaxWidth(),
                     text = "${headline.routeLabel} · ${headline.optionLabel}",
-                    color = Color.White,
+                    color = headline.accentColor(),
                     textAlign = TextAlign.Center,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -685,7 +699,7 @@ private fun NextGlanceBlock(
                 Text(
                     modifier = Modifier.fillMaxWidth(),
                     text = "→ ${headline.destination}",
-                    color = Color(0xFFC7C7C7),
+                    color = headline.accentColor().copy(alpha = 0.78f),
                     textAlign = TextAlign.Center,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -745,30 +759,60 @@ private fun NextGlanceBlock(
 }
 
 @Composable
+private fun rememberTransitSearchState(
+    query: String,
+    kind: MadridTransitKind?,
+    limit: Int,
+): TransitSearchState {
+    var state by remember { mutableStateOf<TransitSearchState>(TransitSearchState.Blank) }
+    LaunchedEffect(query, kind, limit) {
+        when {
+            query.isBlank() -> {
+                state = TransitSearchState.Blank
+                return@LaunchedEffect
+            }
+            !MadridTransitSearch.isQueryReady(query) -> {
+                state = TransitSearchState.TooShort
+                return@LaunchedEffect
+            }
+        }
+
+        state = TransitSearchState.Loading
+        delay(SEARCH_DEBOUNCE_MILLIS)
+        val results = withContext(Dispatchers.Default) {
+            MadridTransitCatalog.searchOptions(
+                query = query,
+                kind = kind,
+                limit = limit,
+            )
+        }
+        state = TransitSearchState.Loaded(results)
+    }
+    return state
+}
+
+@Composable
 private fun MadridTransitPicker(
     title: String,
     place: MadridTransitPlace,
-    options: List<MadridTransitOption>,
+    kind: MadridTransitKind,
     favorites: List<MadridTransitFavorite>,
     onAdd: (MadridTransitOption) -> Unit,
     onBack: () -> Unit,
 ) {
-    val selectedIds = favorites
-        .filter { favorite -> favorite.place == place }
-        .map { favorite -> favorite.option.id }
-        .toSet()
-    val optionIds = options.map { option -> option.id }.toSet()
-    val searchKind = options.firstOrNull()?.kind
-    var query by remember { mutableStateOf("") }
-    val visibleOptions = if (query.isBlank()) {
-        emptyList()
-    } else {
-        MadridTransitCatalog.searchOptions(
-            query = query,
-            kind = searchKind,
-            limit = 8,
-        ).filter { option -> option.id in optionIds }
+    val selectedIds = remember(favorites, place) {
+        favorites
+            .filter { favorite -> favorite.place == place }
+            .map { favorite -> favorite.option.id }
+            .toSet()
     }
+    var query by remember { mutableStateOf("") }
+    val searchState = rememberTransitSearchState(
+        query = query,
+        kind = kind,
+        limit = 8,
+    )
+    val visibleOptions = (searchState as? TransitSearchState.Loaded)?.results.orEmpty()
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -782,7 +826,14 @@ private fun MadridTransitPicker(
             onQueryChange = { nextQuery -> query = nextQuery },
         )
         if (visibleOptions.isEmpty()) {
-            EmptyBlock(text = if (query.isBlank()) "Escribe para buscar" else "Sin resultados")
+            EmptyBlock(
+                text = when (searchState) {
+                    TransitSearchState.Blank -> "Escribe para buscar"
+                    TransitSearchState.TooShort -> "Mínimo 2 letras o un número"
+                    TransitSearchState.Loading -> "Buscando..."
+                    is TransitSearchState.Loaded -> "Sin resultados"
+                }
+            )
         } else {
             visibleOptions.forEach { option ->
                 OptionBlock(
@@ -824,23 +875,37 @@ private fun MadridNearbyScreen(
         onLocationChanged(location)
         status = if (location == null) "Sin ubicación" else "Paradas cercanas"
     }
-    val selectedIds = favorites
-        .filter { favorite -> favorite.place == place }
-        .map { favorite -> favorite.option.id }
-        .toSet()
-    var query by remember { mutableStateOf("") }
-    val nearby = location
-        ?.let { point -> MadridTransitCatalog.nearbyOptions(from = point, limit = 6) }
-        .orEmpty()
-    val searchResults = if (query.isBlank()) {
-        emptyList()
-    } else {
-        MadridTransitCatalog.searchOptions(query = query, limit = 8)
+    val selectedIds = remember(favorites, place) {
+        favorites
+            .filter { favorite -> favorite.place == place }
+            .map { favorite -> favorite.option.id }
+            .toSet()
     }
+    var query by remember { mutableStateOf("") }
+    var nearby by remember { mutableStateOf<List<Pair<MadridTransitOption, Int>>>(emptyList()) }
+    var isLoadingNearby by remember { mutableStateOf(false) }
+    LaunchedEffect(location) {
+        val point = location
+        if (point == null) {
+            nearby = emptyList()
+            isLoadingNearby = false
+            return@LaunchedEffect
+        }
+        isLoadingNearby = true
+        nearby = withContext(Dispatchers.Default) {
+            MadridTransitCatalog.nearbyOptions(from = point, limit = 6)
+        }
+        isLoadingNearby = false
+    }
+    val searchState = rememberTransitSearchState(
+        query = query,
+        kind = null,
+        limit = 8,
+    )
     val visibleOptions = if (query.isBlank()) {
         nearby
     } else {
-        searchResults.map { option ->
+        (searchState as? TransitSearchState.Loaded)?.results.orEmpty().map { option ->
             val meters = location?.let { point ->
                 option.location?.let { optionLocation -> distanceMeters(from = point, to = optionLocation) }
             }
@@ -880,7 +945,18 @@ private fun MadridNearbyScreen(
         )
 
         if (visibleOptions.isEmpty()) {
-            EmptyBlock(text = if (query.isBlank()) "Ubicación no disponible" else "Sin resultados")
+            EmptyBlock(
+                text = if (query.isBlank()) {
+                    if (isLoadingNearby) "Calculando cercanas..." else "Ubicación no disponible"
+                } else {
+                    when (searchState) {
+                        TransitSearchState.Blank -> "Escribe para buscar"
+                        TransitSearchState.TooShort -> "Mínimo 2 letras o un número"
+                        TransitSearchState.Loading -> "Buscando..."
+                        is TransitSearchState.Loaded -> "Sin resultados"
+                    }
+                }
+            )
         } else {
             visibleOptions.forEach { (option, meters) ->
                 OptionBlock(
@@ -1022,11 +1098,10 @@ private fun TransitFavoriteBlock(
             )
         }
         ResultLines(
-            lines = if (isLoading) listOf("Actualizando...") else result.displayLines(fallback = snapshotItem),
-            color = if (result.hasUncachedFailure(fallback = snapshotItem)) {
-                Color(0xFFFF8A80)
+            lines = if (isLoading) {
+                listOf(TransitDisplayLine("Actualizando...", accent.copy(alpha = 0.78f)))
             } else {
-                Color.White
+                result.displayLines(fallback = snapshotItem)
             },
         )
         if (editMode) {
@@ -1154,8 +1229,13 @@ private fun Header(title: String, subtitle: String) {
     }
 }
 
+private data class TransitDisplayLine(
+    val text: String,
+    val color: Color,
+)
+
 @Composable
-private fun ResultLines(lines: List<String>, color: Color) {
+private fun ResultLines(lines: List<TransitDisplayLine>) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -1164,8 +1244,8 @@ private fun ResultLines(lines: List<String>, color: Color) {
         lines.forEach { line ->
             Text(
                 modifier = Modifier.fillMaxWidth(),
-                text = line,
-                color = color,
+                text = line.text,
+                color = line.color,
                 textAlign = TextAlign.Center,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -1249,65 +1329,65 @@ private fun TransitUiState.headerStatus(): String = when (this) {
     is TransitUiState.Failed -> "Error al actualizar"
 }
 
-private fun MadridTransitLoadResult?.displayLines(fallback: MadridTransitSnapshotItem?): List<String> = when (this) {
-    null -> fallback?.let { item -> listOf("${item.routeLabel} hacia ${item.destination}") } ?: listOf("Esperando")
+private fun MadridTransitLoadResult?.displayLines(
+    fallback: MadridTransitSnapshotItem?,
+): List<TransitDisplayLine> = when (this) {
+    null -> fallback?.let { item ->
+        listOf(TransitDisplayLine("${item.routeLabel} hacia ${item.destination}", item.accentColor()))
+    } ?: listOf(TransitDisplayLine("Esperando", SecondaryTextColor))
     is MadridTransitLoadResult.Metro -> {
         val prefix = if (result.isStale) {
-            result.validUntil?.let { validUntil -> "GTFS $validUntil" } ?: "GTFS caducado"
+            TransitDisplayLine(
+                text = result.validUntil?.let { validUntil -> "GTFS $validUntil" } ?: "GTFS caducado",
+                color = SecondaryTextColor,
+            )
         } else {
             null
         }
         listOfNotNull(prefix) + result.departures
             .take(favorite.clampedCount)
             .map { departure -> departure.metroLine() }
-            .ifEmpty { listOf("Sin trenes") }
+            .ifEmpty { listOf(TransitDisplayLine("Sin trenes", favorite.accentColor().copy(alpha = 0.78f))) }
     }
     is MadridTransitLoadResult.Bus -> arrivals
         .take(favorite.clampedCount)
-        .map { arrival -> arrival.busLine() }
-        .ifEmpty { listOf("Sin buses") }
-    is MadridTransitLoadResult.MissingConfig -> fallback?.cachedLines(message) ?: listOf(message)
-    is MadridTransitLoadResult.Failed -> fallback?.cachedLines(message) ?: listOf(message)
+        .map { arrival -> arrival.busLine(color = favorite.accentColor()) }
+        .ifEmpty { listOf(TransitDisplayLine("Sin buses", favorite.accentColor().copy(alpha = 0.78f))) }
+    is MadridTransitLoadResult.MissingConfig -> fallback?.cachedLines(message)
+        ?: listOf(TransitDisplayLine(message, favorite.accentColor().copy(alpha = 0.78f)))
+    is MadridTransitLoadResult.Failed -> fallback?.cachedLines(message)
+        ?: listOf(TransitDisplayLine(message, FailureTextColor))
 }
 
-private fun MadridTransitSnapshotItem.cachedLines(reason: String): List<String> {
-    return listOf("${routeLabel} hacia $destination", "Cache · $reason")
-}
-
-private fun MadridTransitLoadResult?.hasUncachedFailure(fallback: MadridTransitSnapshotItem?): Boolean {
-    return fallback == null && (this is MadridTransitLoadResult.MissingConfig || this is MadridTransitLoadResult.Failed)
-}
-
-private fun MetroDeparture.metroLine(): String {
-    return "${minutesUntil.madridTransitMinuteLabel()} ${routeName.madridTransitShortRoute()} → $destination"
-}
-
-private fun EmtBusArrival.busLine(): String {
-    return "${secondsUntil.madridTransitBusMinuteLabel()} $lineId → $destination"
-}
-
-private fun MadridTransitKind.accentColor(): Color = when (this) {
-    MadridTransitKind.METRO -> Color(MadridMetroLineColors.FALLBACK_ARGB)
-    MadridTransitKind.BUS -> Color(0xFF9CCC65)
-}
-
-private fun MadridTransitSnapshotItem.accentColor(): Color = when (kind) {
-    MadridTransitKind.METRO -> Color(
-        MadridMetroLineColors.colorArgbForLine(routeLabel) ?: MadridMetroLineColors.FALLBACK_ARGB
+private fun MadridTransitSnapshotItem.cachedLines(reason: String): List<TransitDisplayLine> {
+    return listOf(
+        TransitDisplayLine("${routeLabel} hacia $destination", accentColor()),
+        TransitDisplayLine("Cache · $reason", SecondaryTextColor),
     )
-    MadridTransitKind.BUS -> kind.accentColor()
 }
+
+private fun MetroDeparture.metroLine(): TransitDisplayLine {
+    val routeLabel = routeName.madridTransitShortRoute()
+    return TransitDisplayLine(
+        text = "${minutesUntil.madridTransitMinuteLabel()} $routeLabel → $destination",
+        color = Color(MadridTransitColors.textArgbForMetroLine(routeLabel)),
+    )
+}
+
+private fun EmtBusArrival.busLine(color: Color): TransitDisplayLine {
+    return TransitDisplayLine(
+        text = "${secondsUntil.madridTransitBusMinuteLabel()} $lineId → $destination",
+        color = color,
+    )
+}
+
+private fun MadridTransitSnapshotItem.accentColor(): Color =
+    Color(MadridTransitColors.textArgbForSnapshotItem(this))
 
 private fun MadridTransitFavorite.accentColor(): Color = option.accentColor()
 
-private fun MadridTransitOption.accentColor(): Color = when (kind) {
-    MadridTransitKind.METRO -> Color(
-        MadridMetroLineColors.colorArgbForLine(metroTarget?.routeNameQuery)
-            ?: MadridMetroLineColors.colorArgbForLine(label)
-            ?: MadridMetroLineColors.FALLBACK_ARGB
-    )
-    MadridTransitKind.BUS -> kind.accentColor()
-}
+private fun MadridTransitOption.accentColor(): Color =
+    Color(MadridTransitColors.textArgbForOption(this))
 
 private fun MadridTransitPlace.selectorLabel(isSelected: Boolean): String {
     return if (isSelected) shortLabel.uppercase(Locale.ROOT) else shortLabel

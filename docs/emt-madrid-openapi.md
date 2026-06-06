@@ -68,15 +68,6 @@ to basic login. Gradle exposes values as `BuildConfig.EMT_CLIENT_ID`,
 
 ## Runtime Behavior
 
-Launch the direct example:
-
-```bash
-source ./scripts/common.sh
-ANDROID_SERIAL=WATCH_IP:ADB_PORT adb_cmd shell am start \
-  -n "$APP_ID/$MAIN_ACTIVITY" \
-  --es example emt
-```
-
 Runtime flow:
 
 ```text
@@ -140,9 +131,7 @@ Install and launch on a selected watch or emulator:
 ```bash
 ANDROID_SERIAL=WATCH_IP:ADB_PORT ./scripts/install-watch.sh
 ANDROID_SERIAL=WATCH_IP:ADB_PORT adb_cmd logcat -c
-ANDROID_SERIAL=WATCH_IP:ADB_PORT adb_cmd shell am start \
-  -n "$APP_ID/$MAIN_ACTIVITY" \
-  --es example emt
+ANDROID_SERIAL=WATCH_IP:ADB_PORT ./scripts/launch-watch.sh
 sleep 15
 ANDROID_SERIAL=WATCH_IP:ADB_PORT ./scripts/screenshot-watch.sh
 ANDROID_SERIAL=WATCH_IP:ADB_PORT adb_cmd logcat -d \
@@ -176,8 +165,7 @@ Screenshots are written under `artifacts/screenshots/`.
 ## Code Map
 
 ```text
-EmtMadridExample.kt       Direct Wear OS Compose example
-EmtMadridArrival.kt       EMT client and arrival parser
-EmtMadridArrivalTest.kt   JVM tests for token and arrival parsing
+transit/MadridEmtTransit.kt EMT client and arrival parser
+EmtMadridArrivalTest.kt     JVM tests for token and arrival parsing
 transit/MadridTransitRuntime.kt Runtime integration used by Madrid Wrist
 ```

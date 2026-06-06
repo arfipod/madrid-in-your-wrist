@@ -57,6 +57,12 @@ ANDROID_SERIAL=WATCH_IP:ADB_PORT ./scripts/launch-watch.sh
 ANDROID_SERIAL=WATCH_IP:ADB_PORT ./scripts/screenshot-watch.sh
 ```
 
+Keep ADB Wi-Fi alive during long iteration sessions:
+
+```bash
+ANDROID_SERIAL=WATCH_IP:ADB_PORT ./scripts/keep-watch-adb-alive.sh
+```
+
 Full local loop:
 
 ```bash

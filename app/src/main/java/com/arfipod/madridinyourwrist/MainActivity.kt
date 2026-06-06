@@ -8,12 +8,8 @@ import android.os.VibratorManager
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.wear.compose.material3.MaterialTheme
-import com.arfipod.madridinyourwrist.examples.ExampleKind
-import com.arfipod.madridinyourwrist.examples.ExampleSurface
 
 private const val LOG_TAG = "WearLoop"
-private const val EXTRA_EXAMPLE = "example"
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -21,22 +17,11 @@ class MainActivity : ComponentActivity() {
 
         Log.i(LOG_TAG, "MainActivity created. Build timestamp=${BuildConfig.BUILD_TIMESTAMP}")
 
-        val initialExample = ExampleKind.fromRoute(intent?.getStringExtra(EXTRA_EXAMPLE))
         setContent {
-            if (initialExample != null) {
-                MaterialTheme {
-                    ExampleSurface(
-                        example = initialExample,
-                        onBack = { finish() },
-                        onEvent = { message -> Log.i(LOG_TAG, message) },
-                    )
-                }
-            } else {
-                MadridInYourWristApp(
-                    onEvent = { message -> Log.i(LOG_TAG, message) },
-                    onHaptic = ::vibrateShort,
-                )
-            }
+            MadridInYourWristApp(
+                onEvent = { message -> Log.i(LOG_TAG, message) },
+                onHaptic = ::vibrateShort,
+            )
         }
     }
 

@@ -50,17 +50,9 @@ Gradle exposes the value as `BuildConfig.NAP_API_KEY`.
 
 ## Runtime Behavior
 
-Launch the direct example:
-
-```bash
-source ./scripts/common.sh
-ANDROID_SERIAL=WATCH_IP:ADB_PORT adb_cmd shell am start \
-  -n "$APP_ID/$MAIN_ACTIVITY" \
-  --es example metro
-```
-
-The direct example targets Line 4 at `Argüelles` toward `Pinar de Chamartín`.
-Madrid Wrist can load multiple Metro targets from `MadridTransitCatalog`.
+Madrid Wrist loads Metro targets from `MadridTransitCatalog`, which is generated
+from official CRTM GTFS feeds. Each favorite stores its station, line, and
+destination target.
 
 Runtime flow:
 
@@ -126,9 +118,8 @@ unzip -p artifacts/nap-metro-1134.zip frequencies.txt | rg "4_I15-004"
 ## Code Map
 
 ```text
-MetroMadridExample.kt        Direct Wear OS Compose example
-NapMetroSchedule.kt          NAP client, GTFS parser, schedule calculator
-NapMetroScheduleTest.kt      JVM tests for parser and next-departure logic
+transit/MadridMetroSchedule.kt NAP client, GTFS parser, schedule calculator
+NapMetroScheduleTest.kt        JVM tests for parser and next-departure logic
 transit/MadridGeneratedTransitCatalog.kt Searchable Metro options generated from CRTM GTFS
 transit/MadridTransitRuntime.kt Runtime integration used by Madrid Wrist
 ```

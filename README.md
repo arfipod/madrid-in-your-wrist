@@ -40,7 +40,8 @@ Host workflow: WSL2 Ubuntu, Docker, Gradle wrapper, VS Code/Codex, and ADB Wi-Fi
   stop ID, line, destination, and aliases, with accent-insensitive matching.
 - Ships a generated local catalog from official CRTM GTFS feeds: 37,308
   line/stop/destination options at the time of generation.
-- Uses each Metro line's own color in Metro labels and glance highlights.
+- Uses transport-aware colors: Metro/Metro Ligero line colors, EMT blue, and
+  interurban green, with brighter text variants for the dark watch UI.
 - Lets each favorite configure visible arrival count and optional proximity
   trigger radius (`500m`, `1km`, `2km`).
 - Refreshes only the selected profile.
@@ -56,8 +57,6 @@ Host workflow: WSL2 Ubuntu, Docker, Gradle wrapper, VS Code/Codex, and ADB Wi-Fi
 - Falls back to the last stored snapshot when offline or when an API refresh
   fails.
 - Feeds the Tile and `SHORT_TEXT` complication from cached snapshots only.
-- Keeps developer-only direct ADB routes for examples: Flappy Bird, API output,
-  Metro, EMT, 3D, audio, and video.
 
 ## Repository Layout
 
@@ -65,7 +64,6 @@ Host workflow: WSL2 Ubuntu, Docker, Gradle wrapper, VS Code/Codex, and ADB Wi-Fi
 app/                         Android app module
 app/src/main/...             Compose Activity, Madrid Wrist UI, Tile, complication
 app/src/main/.../transit     Catalog, favorites, runtime, cache, refresh policy
-app/src/main/.../examples    Direct developer example routes
 app/src/test/...             JVM unit tests
 scripts/                     Build, ADB, screenshot, logcat, bugreport helpers
 tools/                       Reproducible data generators
@@ -90,7 +88,6 @@ artifacts/                   Runtime outputs, ignored by Git
   source behavior.
 - [Screenshot comparison](docs/screenshot-comparison.md): PNG comparison and
   ImageMagick diff output.
-- [Examples](docs/examples.md): direct developer routes and screenshots.
 - [Metro NAP](docs/metro-madrid-nap.md): Metro GTFS/NAP setup and schedule
   behavior.
 - [EMT OpenAPI](docs/emt-madrid-openapi.md): MobilityLabs credential setup and
@@ -147,6 +144,12 @@ Pair/connect the watch:
 adb pair WATCH_IP:PAIRING_PORT
 adb connect WATCH_IP:ADB_PORT
 adb devices -l
+```
+
+Keep the ADB Wi-Fi session warm while iterating:
+
+```bash
+ANDROID_SERIAL=WATCH_IP:ADB_PORT ./scripts/keep-watch-adb-alive.sh
 ```
 
 Install, launch, screenshot, and inspect logs:

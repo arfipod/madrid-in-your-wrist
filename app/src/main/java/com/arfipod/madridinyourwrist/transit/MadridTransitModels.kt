@@ -1,7 +1,5 @@
 package com.arfipod.madridinyourwrist.transit
-
-import com.arfipod.madridinyourwrist.examples.EmtMadridStopTarget
-import com.arfipod.madridinyourwrist.examples.MetroScheduleTarget
+import java.util.PriorityQueue
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.pow
@@ -132,14 +130,14 @@ object MadridTransitProximity {
 
 object MadridTransitCatalog {
     val metroOptions: List<MadridTransitOption> by lazy {
-        MadridGeneratedTransitCatalog.options.filter { option -> option.kind == MadridTransitKind.METRO }
+        MadridGeneratedTransitCatalog.metroOptions
     }
 
     val busOptions: List<MadridTransitOption> by lazy {
-        MadridGeneratedTransitCatalog.options.filter { option -> option.kind == MadridTransitKind.BUS }
+        MadridGeneratedTransitCatalog.busOptions
     }
 
-    val allOptions: List<MadridTransitOption> by lazy { metroOptions + busOptions }
+    val allOptions: List<MadridTransitOption> by lazy { MadridGeneratedTransitCatalog.options }
 
     val defaultFavorites: List<MadridTransitFavorite> by lazy {
         listOfNotNull(
@@ -169,16 +167,25 @@ object MadridTransitCatalog {
         kind: MadridTransitKind? = null,
         limit: Int = 4,
     ): List<Pair<MadridTransitOption, Int>> {
-        return allOptions
-            .asSequence()
-            .filter { kind == null || it.kind == kind }
-            .mapNotNull { option ->
-                val location = option.location ?: return@mapNotNull null
-                option to distanceMeters(from = from, to = location)
+        val resultLimit = limit.coerceAtLeast(1)
+        val nearest = PriorityQueue<Pair<MadridTransitOption, Int>>(
+            compareByDescending<Pair<MadridTransitOption, Int>> { (_, meters) -> meters }
+                .thenByDescending { (option, _) -> option.label }
+                .thenByDescending { (option, _) -> option.id }
+        )
+
+        optionsForKind(kind).forEach { option ->
+            val location = option.location ?: return@forEach
+            val candidate = option to distanceMeters(from = from, to = location)
+            if (nearest.size < resultLimit) {
+                nearest += candidate
+            } else if (NEARER_FIRST.compare(candidate, nearest.peek()) < 0) {
+                nearest.poll()
+                nearest += candidate
             }
-            .sortedBy { it.second }
-            .take(limit.coerceAtLeast(1))
-            .toList()
+        }
+
+        return nearest.toList().sortedWith(NEARER_FIRST)
     }
 
     fun searchOptions(
@@ -187,12 +194,21 @@ object MadridTransitCatalog {
         limit: Int = 8,
     ): List<MadridTransitOption> {
         return MadridTransitSearch.search(
-            options = allOptions.filter { option -> kind == null || option.kind == kind },
+            options = optionsForKind(kind),
             query = query,
             limit = limit,
         )
     }
 
+    private fun optionsForKind(kind: MadridTransitKind?): List<MadridTransitOption> = when (kind) {
+        MadridTransitKind.METRO -> metroOptions
+        MadridTransitKind.BUS -> busOptions
+        null -> allOptions
+    }
+
+    private val NEARER_FIRST = compareBy<Pair<MadridTransitOption, Int>> { (_, meters) -> meters }
+        .thenBy { (option, _) -> option.label }
+        .thenBy { (option, _) -> option.id }
 }
 
 fun distanceMeters(from: MadridGeoPoint, to: MadridGeoPoint): Int {

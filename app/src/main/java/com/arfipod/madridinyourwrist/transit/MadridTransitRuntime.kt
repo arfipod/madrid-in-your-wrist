@@ -1,12 +1,5 @@
 package com.arfipod.madridinyourwrist.transit
 
-import com.arfipod.madridinyourwrist.examples.EmtBusArrival
-import com.arfipod.madridinyourwrist.examples.EmtMadridClient
-import com.arfipod.madridinyourwrist.examples.EmtMadridCredentials
-import com.arfipod.madridinyourwrist.examples.MetroDeparturesResult
-import com.arfipod.madridinyourwrist.examples.MetroGtfsSchedule
-import com.arfipod.madridinyourwrist.examples.NapMetroClient
-
 sealed interface MadridTransitLoadResult {
     val favorite: MadridTransitFavorite
 

@@ -1,4 +1,4 @@
-package com.arfipod.madridinyourwrist.examples
+package com.arfipod.madridinyourwrist.transit
 
 import java.io.ByteArrayOutputStream
 import java.time.LocalDate

@@ -1,8 +1,5 @@
 package com.arfipod.madridinyourwrist.transit
 
-import com.arfipod.madridinyourwrist.examples.EmtBusArrival
-import com.arfipod.madridinyourwrist.examples.MetroDeparture
-import com.arfipod.madridinyourwrist.examples.MetroDeparturesResult
 import java.time.LocalDateTime
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -69,6 +66,7 @@ class MadridTransitSnapshotTest {
                 MadridTransitSnapshotItem(
                     optionId = "metro_4_54_pinar_de_chamartin",
                     kind = MadridTransitKind.METRO,
+                    source = MadridTransitSource.METRO_NAP,
                     place = MadridTransitPlace.PROFILE_3,
                     optionLabel = "Argüelles L4",
                     detail = "Pinar de Chamartín",
@@ -97,6 +95,7 @@ class MadridTransitSnapshotTest {
         assertEquals("08:15", decoded?.updatedAt)
         assertEquals(0L, decoded?.storedAtEpochMillis)
         assertEquals("bus_emt_e3_1064_valderrivas", decoded?.items?.single()?.optionId)
+        assertEquals(MadridTransitSource.EMT_OPENAPI, decoded?.items?.single()?.source)
     }
 
     @Test

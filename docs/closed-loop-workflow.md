@@ -13,6 +13,23 @@ manual.
 The expected target is a Pixel Watch 3 in `device` state. If more than one ADB
 target is visible, pass `ANDROID_SERIAL` explicitly in every device command.
 
+## Keep ADB Wi-Fi Alive
+
+Wireless debugging can drop during idle sessions. Leave this running in a
+terminal while iterating:
+
+```bash
+ANDROID_SERIAL=WATCH_IP:ADB_PORT ./scripts/keep-watch-adb-alive.sh
+```
+
+By default it sends a cheap ADB ping every 25 seconds and does not wake the
+display. Tune it when needed:
+
+```bash
+ADB_KEEP_ALIVE_INTERVAL_SECONDS=15 ANDROID_SERIAL=WATCH_IP:ADB_PORT ./scripts/keep-watch-adb-alive.sh
+ADB_KEEP_ALIVE_WAKE_EVERY=20 ANDROID_SERIAL=WATCH_IP:ADB_PORT ./scripts/keep-watch-adb-alive.sh
+```
+
 ## Full Loop
 
 Docker build, install, launch, and screenshot:

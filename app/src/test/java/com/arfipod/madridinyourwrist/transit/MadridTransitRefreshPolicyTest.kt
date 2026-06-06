@@ -1,6 +1,5 @@
 package com.arfipod.madridinyourwrist.transit
 
-import com.arfipod.madridinyourwrist.examples.EmtBusArrival
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
