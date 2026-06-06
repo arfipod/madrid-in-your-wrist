@@ -52,9 +52,11 @@ import com.arfipod.madridinyourwrist.transit.MadridTransitCatalog
 import com.arfipod.madridinyourwrist.transit.MadridTransitColors
 import com.arfipod.madridinyourwrist.transit.MadridTransitCounts
 import com.arfipod.madridinyourwrist.transit.MadridTransitFavorite
+import com.arfipod.madridinyourwrist.transit.MadridTransitFavoriteCustomization
 import com.arfipod.madridinyourwrist.transit.MadridTransitKind
 import com.arfipod.madridinyourwrist.transit.MadridTransitLoadResult
 import com.arfipod.madridinyourwrist.transit.MadridTransitOption
+import com.arfipod.madridinyourwrist.transit.MadridTransitOptionSummaries
 import com.arfipod.madridinyourwrist.transit.MadridTransitPlace
 import com.arfipod.madridinyourwrist.transit.MadridTransitProximity
 import com.arfipod.madridinyourwrist.transit.MadridTransitRefreshDecision
@@ -83,6 +85,7 @@ private enum class MadridTransitScreen {
     ADD_METRO,
     ADD_BUS,
     NEARBY,
+    EDIT_FAVORITE,
 }
 
 private sealed interface TransitUiState {
@@ -115,6 +118,13 @@ private data class MadridTransitRefreshTrigger(
         kind = kind,
     )
 }
+
+private data class MadridTransitFavoriteRefreshKey(
+    val optionId: String,
+    val place: MadridTransitPlace,
+    val count: Int,
+    val proximityTriggerMeters: Int?,
+)
 
 private const val LOCATION_RECHECK_MILLIS = 10 * 60 * 1000L
 private const val SEARCH_DEBOUNCE_MILLIS = 180L
@@ -156,19 +166,33 @@ fun MadridInYourWristApp(
         var refreshTrigger by remember { mutableStateOf(MadridTransitRefreshTrigger()) }
         var handledUserRefreshId by remember { mutableIntStateOf(0) }
         var editMode by remember { mutableStateOf(false) }
+        var editingFavoriteId by remember { mutableStateOf<String?>(null) }
         var lastSnapshot by remember { mutableStateOf(snapshotStore.loadSnapshot()) }
         var lastKnownLocation by remember { mutableStateOf<MadridGeoPoint?>(null) }
         var lastLocationCheckedAtMillis by remember { mutableStateOf(0L) }
         var uiState by remember { mutableStateOf<TransitUiState>(TransitUiState.Idle) }
+        val favoriteRefreshKeys = favorites.map { favorite ->
+            MadridTransitFavoriteRefreshKey(
+                optionId = favorite.option.id,
+                place = favorite.place,
+                count = favorite.clampedCount,
+                proximityTriggerMeters = favorite.normalizedProximityTriggerMeters,
+            )
+        }
 
         fun requestRefresh(kind: MadridTransitRefreshKind) {
             refreshTrigger = refreshTrigger.next(kind)
         }
 
-        fun persist(nextFavorites: List<MadridTransitFavorite>) {
+        fun persist(
+            nextFavorites: List<MadridTransitFavorite>,
+            refresh: Boolean = true,
+        ) {
             favorites = nextFavorites
             store.saveFavorites(nextFavorites)
-            requestRefresh(MadridTransitRefreshKind.AUTOMATIC)
+            if (refresh) {
+                requestRefresh(MadridTransitRefreshKind.AUTOMATIC)
+            }
             onHaptic()
         }
 
@@ -176,6 +200,7 @@ fun MadridInYourWristApp(
             selectedPlace = place
             store.saveSelectedPlace(place)
             editMode = false
+            editingFavoriteId = null
             screen = MadridTransitScreen.HOME
             onHaptic()
         }
@@ -219,7 +244,27 @@ fun MadridInYourWristApp(
             )
         }
 
-        LaunchedEffect(favorites, selectedPlace, refreshTrigger) {
+        fun changeFavoriteCustomization(
+            optionId: String,
+            customName: String?,
+            customIcon: String?,
+        ) {
+            persist(
+                nextFavorites = favorites.map { favorite ->
+                    if (favorite.option.id == optionId && favorite.place == selectedPlace) {
+                        favorite.withCustomization(
+                            name = customName,
+                            icon = customIcon,
+                        )
+                    } else {
+                        favorite
+                    }
+                },
+                refresh = false,
+            )
+        }
+
+        LaunchedEffect(favoriteRefreshKeys, selectedPlace, refreshTrigger) {
             val nowEpochMillis = System.currentTimeMillis()
             val forceNetwork = refreshTrigger.kind == MadridTransitRefreshKind.USER &&
                 refreshTrigger.id != handledUserRefreshId
@@ -422,8 +467,52 @@ fun MadridInYourWristApp(
                     onMinus = { optionId -> changeCount(optionId, -1) },
                     onPlus = { optionId -> changeCount(optionId, 1) },
                     onToggleProximity = ::changeProximityTrigger,
+                    onEditFavorite = { optionId ->
+                        editingFavoriteId = optionId
+                        screen = MadridTransitScreen.EDIT_FAVORITE
+                        onHaptic()
+                    },
                     onRemove = ::removeOption,
                 )
+                MadridTransitScreen.EDIT_FAVORITE -> {
+                    val favorite = favorites.firstOrNull { candidate ->
+                        candidate.place == selectedPlace && candidate.option.id == editingFavoriteId
+                    }
+                    if (favorite == null) {
+                        MadridFavoriteEditMissingScreen(
+                            onBack = {
+                                editingFavoriteId = null
+                                screen = MadridTransitScreen.HOME
+                            },
+                        )
+                    } else {
+                        MadridFavoriteEditScreen(
+                            favorite = favorite,
+                            onSave = { name, icon ->
+                                changeFavoriteCustomization(
+                                    optionId = favorite.option.id,
+                                    customName = name,
+                                    customIcon = icon,
+                                )
+                                editingFavoriteId = null
+                                screen = MadridTransitScreen.HOME
+                            },
+                            onClear = {
+                                changeFavoriteCustomization(
+                                    optionId = favorite.option.id,
+                                    customName = null,
+                                    customIcon = null,
+                                )
+                                editingFavoriteId = null
+                                screen = MadridTransitScreen.HOME
+                            },
+                            onBack = {
+                                editingFavoriteId = null
+                                screen = MadridTransitScreen.HOME
+                            },
+                        )
+                    }
+                }
                 MadridTransitScreen.ADD_METRO -> MadridTransitPicker(
                     title = "Metro",
                     place = selectedPlace,
@@ -473,6 +562,7 @@ private fun MadridTransitHome(
     onMinus: (String) -> Unit,
     onPlus: (String) -> Unit,
     onToggleProximity: (String) -> Unit,
+    onEditFavorite: (String) -> Unit,
     onRemove: (String) -> Unit,
 ) {
     val visibleFavorites = favorites.filter { favorite -> favorite.place == selectedPlace }
@@ -504,6 +594,9 @@ private fun MadridTransitHome(
         NextGlanceBlock(
             selectedPlace = selectedPlace,
             headline = headline,
+            headlineFavorite = headline?.let { item ->
+                visibleFavorites.firstOrNull { favorite -> favorite.option.id == item.optionId }
+            },
             isLoading = uiState is TransitUiState.Loading,
             isFailed = uiState is TransitUiState.Failed,
             hasFavorites = visibleFavorites.isNotEmpty(),
@@ -548,6 +641,7 @@ private fun MadridTransitHome(
                     onMinus = onMinus,
                     onPlus = onPlus,
                     onToggleProximity = onToggleProximity,
+                    onEditFavorite = onEditFavorite,
                     onRemove = onRemove,
                 )
             }
@@ -598,6 +692,7 @@ private fun PlaceSelector(
 private fun NextGlanceBlock(
     selectedPlace: MadridTransitPlace,
     headline: MadridTransitSnapshotItem?,
+    headlineFavorite: MadridTransitFavorite?,
     isLoading: Boolean,
     isFailed: Boolean,
     hasFavorites: Boolean,
@@ -685,7 +780,7 @@ private fun NextGlanceBlock(
                 )
                 Text(
                     modifier = Modifier.fillMaxWidth(),
-                    text = "${headline.routeLabel} · ${headline.optionLabel}",
+                    text = "${headline.routeLabel} · ${headlineFavorite?.displayName() ?: headline.optionLabel}",
                     color = headline.accentColor(),
                     textAlign = TextAlign.Center,
                     maxLines = 1,
@@ -755,6 +850,97 @@ private fun NextGlanceBlock(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun MadridFavoriteEditScreen(
+    favorite: MadridTransitFavorite,
+    onSave: (String, String) -> Unit,
+    onClear: () -> Unit,
+    onBack: () -> Unit,
+) {
+    var icon by remember(favorite.option.id, favorite.place) {
+        mutableStateOf(favorite.normalizedCustomIcon ?: "")
+    }
+    var name by remember(favorite.option.id, favorite.place) {
+        mutableStateOf(favorite.normalizedCustomName ?: "")
+    }
+    val summary = MadridTransitOptionSummaries.from(favorite.option)
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .wearRotaryVerticalScroll(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(7.dp),
+    ) {
+        Header(
+            title = "Editar favorito",
+            subtitle = "${summary.lineLabel} · ${summary.stopName}",
+        )
+        FavoriteTextField(
+            value = icon,
+            placeholder = "Icono",
+            maxLength = MadridTransitFavoriteCustomization.ICON_MAX_CODE_POINTS * 2,
+            onValueChange = { nextIcon ->
+                icon = MadridTransitFavoriteCustomization.normalizeIcon(nextIcon) ?: ""
+            },
+        )
+        FavoriteTextField(
+            value = name,
+            placeholder = "Nombre",
+            maxLength = MadridTransitFavoriteCustomization.NAME_MAX_CHARS,
+            onValueChange = { nextName ->
+                name = nextName
+                    .replace('\n', ' ')
+                    .replace('\r', ' ')
+                    .take(MadridTransitFavoriteCustomization.NAME_MAX_CHARS)
+            },
+        )
+        EmptyBlock(
+            text = "${icon.ifBlank { favorite.displayIcon() }} · ${name.trim().ifBlank { favorite.option.label }}",
+        )
+        SmallActionButton(
+            modifier = Modifier.fillMaxWidth(),
+            label = "GUARDAR",
+            onClick = { onSave(name, icon) },
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            SmallActionButton(
+                modifier = Modifier.weight(1f),
+                label = "LIMPIAR",
+                onClick = onClear,
+            )
+            SmallActionButton(
+                modifier = Modifier.weight(1f),
+                label = "VOLVER",
+                onClick = onBack,
+            )
+        }
+    }
+}
+
+@Composable
+private fun MadridFavoriteEditMissingScreen(
+    onBack: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .wearRotaryVerticalScroll(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(7.dp),
+    ) {
+        Header(title = "Editar favorito", subtitle = "No disponible")
+        EmptyBlock(text = "Favorito no encontrado")
+        SmallActionButton(
+            modifier = Modifier.fillMaxWidth(),
+            label = "VOLVER",
+            onClick = onBack,
+        )
     }
 }
 
@@ -1023,6 +1209,62 @@ private fun SearchField(
 }
 
 @Composable
+private fun FavoriteTextField(
+    value: String,
+    placeholder: String,
+    maxLength: Int,
+    onValueChange: (String) -> Unit,
+) {
+    val keyboardController = LocalSoftwareKeyboardController.current
+    BasicTextField(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color(0xFF171717))
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        value = value,
+        onValueChange = { nextValue ->
+            onValueChange(
+                nextValue
+                    .replace('\n', ' ')
+                    .replace('\r', ' ')
+                    .take(maxLength)
+            )
+        },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+        keyboardActions = KeyboardActions(
+            onDone = { keyboardController?.hide() },
+        ),
+        textStyle = MaterialTheme.typography.bodyMedium.copy(
+            color = Color.White,
+            textAlign = TextAlign.Center,
+            fontSize = 12.sp,
+            lineHeight = 13.sp,
+        ),
+        decorationBox = { innerTextField ->
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (value.isBlank()) {
+                    Text(
+                        modifier = Modifier.fillMaxWidth(),
+                        text = placeholder,
+                        color = Color(0xFF8E8E8E),
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp, lineHeight = 12.sp),
+                    )
+                }
+                innerTextField()
+            }
+        },
+    )
+}
+
+@Composable
 private fun TransitFavoriteBlock(
     favorite: MadridTransitFavorite,
     result: MadridTransitLoadResult?,
@@ -1033,6 +1275,7 @@ private fun TransitFavoriteBlock(
     onMinus: (String) -> Unit,
     onPlus: (String) -> Unit,
     onToggleProximity: (String) -> Unit,
+    onEditFavorite: (String) -> Unit,
     onRemove: (String) -> Unit,
 ) {
     val accent = favorite.accentColor()
@@ -1049,9 +1292,29 @@ private fun TransitFavoriteBlock(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(accent.copy(alpha = 0.18f))
+                    .padding(horizontal = 6.dp, vertical = 3.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = favorite.displayIcon(),
+                    color = accent,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.sp,
+                        lineHeight = 12.sp,
+                    ),
+                )
+            }
             Text(
                 modifier = Modifier.weight(1f),
-                text = favorite.option.label,
+                text = favorite.displayName(),
                 color = accent,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -1138,7 +1401,12 @@ private fun TransitFavoriteBlock(
                 horizontalArrangement = Arrangement.spacedBy(5.dp),
             ) {
                 SmallActionButton(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.weight(1f),
+                    label = "ALIAS",
+                    onClick = { onEditFavorite(favorite.option.id) },
+                )
+                SmallActionButton(
+                    modifier = Modifier.weight(1f),
                     label = "DEL",
                     onClick = { onRemove(favorite.option.id) },
                 )
@@ -1154,11 +1422,8 @@ private fun OptionBlock(
     isSelected: Boolean,
     onAdd: () -> Unit,
 ) {
-    val detail = listOfNotNull(
-        option.detail,
-        option.source.label.takeIf { !option.source.hasLiveArrivals },
-        distanceMeters?.let { meters -> formatDistance(meters) },
-    ).joinToString(" | ")
+    val accent = option.accentColor()
+    val summary = MadridTransitOptionSummaries.from(option)
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -1167,28 +1432,79 @@ private fun OptionBlock(
             .padding(9.dp),
         verticalArrangement = Arrangement.spacedBy(5.dp),
     ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(7.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(accent.copy(alpha = 0.18f))
+                    .padding(horizontal = 6.dp, vertical = 3.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = summary.lineLabel,
+                    color = accent,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.sp,
+                        lineHeight = 12.sp,
+                    ),
+                )
+            }
+            Text(
+                modifier = Modifier.weight(1f),
+                text = summary.stopName,
+                color = Color.White,
+                textAlign = TextAlign.Start,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp,
+                    lineHeight = 13.sp,
+                ),
+            )
+            distanceMeters?.let { meters ->
+                Text(
+                    text = formatDistance(meters),
+                    color = accent,
+                    textAlign = TextAlign.End,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.sp,
+                        lineHeight = 12.sp,
+                    ),
+                )
+            }
+        }
         Text(
             modifier = Modifier.fillMaxWidth(),
-            text = option.label,
-            color = option.accentColor(),
+            text = summary.metadataLabel,
+            color = SecondaryTextColor,
             textAlign = TextAlign.Center,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            style = MaterialTheme.typography.bodyMedium.copy(
-                fontWeight = FontWeight.Bold,
-                fontSize = 12.sp,
-                lineHeight = 13.sp,
-            ),
-        )
-        Text(
-            modifier = Modifier.fillMaxWidth(),
-            text = detail,
-            color = Color(0xFFC7C7C7),
-            textAlign = TextAlign.Center,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
             style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp, lineHeight = 11.sp),
         )
+        summary.destinationLine?.let { destinationLine ->
+            Text(
+                modifier = Modifier.fillMaxWidth(),
+                text = destinationLine,
+                color = accent.copy(alpha = 0.78f),
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp, lineHeight = 11.sp),
+            )
+        }
         SmallActionButton(
             modifier = Modifier.fillMaxWidth(),
             label = if (isSelected) "AÑADIDO" else "AÑADIR",
@@ -1388,6 +1704,11 @@ private fun MadridTransitFavorite.accentColor(): Color = option.accentColor()
 
 private fun MadridTransitOption.accentColor(): Color =
     Color(MadridTransitColors.textArgbForOption(this))
+
+private fun MadridTransitFavorite.displayName(): String = normalizedCustomName ?: option.label
+
+private fun MadridTransitFavorite.displayIcon(): String =
+    normalizedCustomIcon ?: MadridTransitOptionSummaries.from(option).lineLabel
 
 private fun MadridTransitPlace.selectorLabel(isSelected: Boolean): String {
     return if (isSelected) shortLabel.uppercase(Locale.ROOT) else shortLabel

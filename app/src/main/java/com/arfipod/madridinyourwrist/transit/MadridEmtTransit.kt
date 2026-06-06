@@ -19,6 +19,7 @@ object EmtMadridTarget {
         label = LABEL,
         lineId = LINE_ID,
         destination = DESTINATION,
+        stopName = "Avenida De Daroca - Casalarreina",
     )
 }
 
@@ -27,6 +28,7 @@ data class EmtMadridStopTarget(
     val label: String,
     val lineId: String? = null,
     val destination: String? = null,
+    val stopName: String? = null,
 )
 
 data class EmtMadridCredentials(

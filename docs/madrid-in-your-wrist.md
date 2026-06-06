@@ -17,12 +17,18 @@ The watch app can be operated entirely from Wear OS:
 - Opens the Wear OS keyboard for text search and matches the local catalog by
   station, stop, stop ID, line, destination, and aliases without requiring
   accents.
+- Keeps nearby/search result cards readable on the watch by giving line,
+  station/stop name, stop code, destination, service type, and distance their
+  own compact fields.
 - Uses transport-aware colors for labels, result lines, and top glance
   highlights: Metro/Metro Ligero line colors, EMT blue, and interurban green,
   with brighter text variants for the dark watch UI.
 - Lets each favorite choose how many upcoming departures or arrivals to show, but
   keeps count/delete controls behind an explicit `EDIT` mode to make the default
   path glance-first.
+- Lets each favorite override its visible name and short icon from the Wear OS
+  keyboard. The alias is local to the selected profile and does not change the
+  underlying catalog option.
 - Lets each favorite opt into distance activation with a proximity radius of
   `500m`, `1km`, or `2km`. The setting is stored with the favorite and can be
   evaluated against the last known watch location.
@@ -41,10 +47,10 @@ The watch app can be operated entirely from Wear OS:
 - Feeds the Wear OS Tile and `SHORT_TEXT` complication from the last cached
   snapshot instead of doing network work from those glance surfaces.
 
-Favorites, counts, selected profile, proximity trigger settings, and the latest
-transit snapshot are stored in `SharedPreferences`, so the watch keeps useful
-data between app launches. The first launch seeds one Metro favorite and one EMT
-bus favorite in `Perfil 1`.
+Favorites, counts, selected profile, custom favorite names/icons, proximity
+trigger settings, and the latest transit snapshot are stored in
+`SharedPreferences`, so the watch keeps useful data between app launches. The
+first launch seeds one Metro favorite and one EMT bus favorite in `Perfil 1`.
 
 ## Data Sources
 
@@ -182,6 +188,7 @@ MadridInYourWristApp.kt            Wear OS Compose product UI
 transit/MadridTransitModels.kt     Catalog, profiles, favorites, counts, distance sorting
 transit/MadridGeneratedTransitCatalog.kt Generated official GTFS catalog index
 transit/MadridTransitColors.kt     Metro, EMT, and interurban text/brand colors
+transit/MadridTransitOptionSummary.kt Compact display fields for search/nearby cards
 transit/MadridMetroLineColors.kt   Metro, Ramal, and Metro Ligero color palette
 transit/MadridTransitSearch.kt     Accent-insensitive station/stop/line matcher
 transit/MadridMetroSchedule.kt     NAP client, GTFS parser, schedule calculator

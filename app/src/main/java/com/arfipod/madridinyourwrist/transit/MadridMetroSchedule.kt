@@ -25,6 +25,7 @@ data class MetroScheduleTarget(
     val stopNameQuery: String = "Argüelles",
     val routeNameQuery: String? = "4",
     val destinationQuery: String? = "Pinar de Chamartín",
+    val stopId: String? = null,
 )
 
 data class MetroDeparture(

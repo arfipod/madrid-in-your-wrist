@@ -484,6 +484,7 @@ object MadridGeneratedTransitCatalog {{
                     stopNameQuery = stopName,
                     routeNameQuery = lineId,
                     destinationQuery = destination,
+                    stopId = stopId,
                 )
             }} else {{
                 null
@@ -494,6 +495,7 @@ object MadridGeneratedTransitCatalog {{
                     label = "$stopName $lineId -> $destination",
                     lineId = lineId,
                     destination = destination,
+                    stopName = stopName,
                 )
             }} else {{
                 null

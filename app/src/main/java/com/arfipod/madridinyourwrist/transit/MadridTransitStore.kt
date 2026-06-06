@@ -1,6 +1,9 @@
 package com.arfipod.madridinyourwrist.transit
 
 import android.content.Context
+import java.net.URLDecoder
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 
 internal const val MADRID_TRANSIT_PREFS_NAME = "madrid_transit"
 private const val KEY_FAVORITES = "favorites"
@@ -40,6 +43,8 @@ object MadridTransitFavoritesCodec {
                 favorite.clampedCount.toString(),
                 favorite.place.id,
                 favorite.normalizedProximityTriggerMeters?.toString().orEmpty(),
+                favorite.normalizedCustomName.orEmpty().encodedFavoriteField(),
+                favorite.normalizedCustomIcon.orEmpty().encodedFavoriteField(),
             ).joinToString(separator = ",")
         }
     }
@@ -55,13 +60,23 @@ object MadridTransitFavoritesCodec {
                 val count = parts.getOrNull(1)?.toIntOrNull() ?: MadridTransitCounts.DEFAULT
                 val place = MadridTransitPlace.fromId(parts.getOrNull(2)) ?: MadridTransitPlace.DEFAULT
                 val proximityTriggerMeters = parts.getOrNull(3)?.toIntOrNull()
+                val customName = parts.getOrNull(4)?.decodedFavoriteField()
+                val customIcon = parts.getOrNull(5)?.decodedFavoriteField()
                 MadridTransitCatalog.favoriteFor(
                     optionId = optionId,
                     count = count,
                     place = place,
                     proximityTriggerMeters = proximityTriggerMeters,
+                    customName = customName,
+                    customIcon = customIcon,
                 )
             }
             .distinctBy { favorite -> "${favorite.place.id}:${favorite.option.id}" }
     }
+
+    private fun String.encodedFavoriteField(): String =
+        URLEncoder.encode(this, StandardCharsets.UTF_8.name())
+
+    private fun String.decodedFavoriteField(): String =
+        URLDecoder.decode(this, StandardCharsets.UTF_8.name())
 }

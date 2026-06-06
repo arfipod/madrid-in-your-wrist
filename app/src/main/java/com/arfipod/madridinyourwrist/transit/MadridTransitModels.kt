@@ -74,12 +74,20 @@ data class MadridTransitFavorite(
     val count: Int,
     val place: MadridTransitPlace = MadridTransitPlace.DEFAULT,
     val proximityTriggerMeters: Int? = null,
+    val customName: String? = null,
+    val customIcon: String? = null,
 ) {
     val clampedCount: Int
         get() = MadridTransitCounts.clamp(count)
 
     val normalizedProximityTriggerMeters: Int?
         get() = MadridTransitProximity.normalize(proximityTriggerMeters)
+
+    val normalizedCustomName: String?
+        get() = MadridTransitFavoriteCustomization.normalizeName(customName)
+
+    val normalizedCustomIcon: String?
+        get() = MadridTransitFavoriteCustomization.normalizeIcon(customIcon)
 
     fun withCount(nextCount: Int): MadridTransitFavorite = copy(
         count = MadridTransitCounts.clamp(nextCount),
@@ -89,6 +97,14 @@ data class MadridTransitFavorite(
 
     fun withNextProximityTrigger(): MadridTransitFavorite = copy(
         proximityTriggerMeters = MadridTransitProximity.next(normalizedProximityTriggerMeters),
+    )
+
+    fun withCustomization(
+        name: String?,
+        icon: String?,
+    ): MadridTransitFavorite = copy(
+        customName = MadridTransitFavoriteCustomization.normalizeName(name),
+        customIcon = MadridTransitFavoriteCustomization.normalizeIcon(icon),
     )
 
     fun isWithinProximityTrigger(distanceMeters: Int?): Boolean {
@@ -128,6 +144,34 @@ object MadridTransitProximity {
     }
 }
 
+object MadridTransitFavoriteCustomization {
+    const val NAME_MAX_CHARS = 28
+    const val ICON_MAX_CODE_POINTS = 4
+
+    fun normalizeName(name: String?): String? {
+        return name
+            ?.replace('\n', ' ')
+            ?.replace('\r', ' ')
+            ?.trim()
+            ?.take(NAME_MAX_CHARS)
+            ?.takeIf { value -> value.isNotBlank() }
+    }
+
+    fun normalizeIcon(icon: String?): String? {
+        return icon
+            ?.replace('\n', ' ')
+            ?.replace('\r', ' ')
+            ?.trim()
+            ?.takeCodePoints(ICON_MAX_CODE_POINTS)
+            ?.takeIf { value -> value.isNotBlank() }
+    }
+
+    private fun String.takeCodePoints(maxCodePoints: Int): String {
+        if (codePointCount(0, length) <= maxCodePoints) return this
+        return substring(0, offsetByCodePoints(0, maxCodePoints))
+    }
+}
+
 object MadridTransitCatalog {
     val metroOptions: List<MadridTransitOption> by lazy {
         MadridGeneratedTransitCatalog.metroOptions
@@ -153,12 +197,16 @@ object MadridTransitCatalog {
         count: Int = MadridTransitCounts.DEFAULT,
         place: MadridTransitPlace = MadridTransitPlace.DEFAULT,
         proximityTriggerMeters: Int? = null,
+        customName: String? = null,
+        customIcon: String? = null,
     ): MadridTransitFavorite? = optionById(optionId)?.let { option ->
         MadridTransitFavorite(
             option = option,
             count = MadridTransitCounts.clamp(count),
             place = place,
             proximityTriggerMeters = MadridTransitProximity.normalize(proximityTriggerMeters),
+            customName = MadridTransitFavoriteCustomization.normalizeName(customName),
+            customIcon = MadridTransitFavoriteCustomization.normalizeIcon(customIcon),
         )
     }
 

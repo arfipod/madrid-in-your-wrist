@@ -38,12 +38,16 @@ Host workflow: WSL2 Ubuntu, Docker, Gradle wrapper, VS Code/Codex, and ADB Wi-Fi
   search/pickers and nearby sorting.
 - Supports on-watch text search across the local catalog by station, stop,
   stop ID, line, destination, and aliases, with accent-insensitive matching.
+- Shows search/nearby results with line, station/stop name, stop code,
+  destination, service type, and distance split into stable fields.
 - Ships a generated local catalog from official CRTM GTFS feeds: 37,308
   line/stop/destination options at the time of generation.
 - Uses transport-aware colors: Metro/Metro Ligero line colors, EMT blue, and
   interurban green, with brighter text variants for the dark watch UI.
 - Lets each favorite configure visible arrival count and optional proximity
   trigger radius (`500m`, `1km`, `2km`).
+- Lets each favorite override its visible name and short icon from the Wear OS
+  keyboard.
 - Refreshes only the selected profile.
 - Skips automatic API refreshes when the selected profile already has a recent
   complete cache; tapping `↻` still forces a live refresh when online.

@@ -78,6 +78,8 @@ class MadridTransitCatalogTest {
                 count = 1,
                 place = MadridTransitPlace.PROFILE_2,
                 proximityTriggerMeters = 1000,
+                customName = "Bus rápido",
+                customIcon = "E3",
             ),
         )
         val raw = MadridTransitFavoritesCodec.encode(favorites) +
@@ -93,6 +95,8 @@ class MadridTransitCatalogTest {
         assertEquals(1, decoded[1].clampedCount)
         assertEquals(MadridTransitPlace.PROFILE_2, decoded[1].place)
         assertEquals(1000, decoded[1].normalizedProximityTriggerMeters)
+        assertEquals("Bus rápido", decoded[1].normalizedCustomName)
+        assertEquals("E3", decoded[1].normalizedCustomIcon)
     }
 
     @Test
@@ -113,6 +117,21 @@ class MadridTransitCatalogTest {
         assertEquals(1, decoded.size)
         assertEquals(MadridTransitPlace.PROFILE_1, decoded.single().place)
         assertEquals(3, decoded.single().clampedCount)
+        assertEquals(null, decoded.single().normalizedCustomName)
+        assertEquals(null, decoded.single().normalizedCustomIcon)
+    }
+
+    @Test
+    fun favoriteCustomizationNormalizesKeyboardText() {
+        val favorite = requireNotNull(
+            MadridTransitCatalog.favoriteFor("metro_4_54_pinar_de_chamartin")
+        ).withCustomization(
+            name = "  Argüelles\nMetro favorito con texto demasiado largo  ",
+            icon = " L4!!extra ",
+        )
+
+        assertEquals("Argüelles Metro favorito con", favorite.normalizedCustomName)
+        assertEquals("L4!!", favorite.normalizedCustomIcon)
     }
 
     @Test
