@@ -1,6 +1,6 @@
 package com.arfipod.madridinyourwrist
 
-import com.arfipod.madridinyourwrist.transit.MadridTransitPlace
+import com.arfipod.madridinyourwrist.transit.MadridTransitPlaceProfile
 import com.arfipod.madridinyourwrist.transit.MadridTransitSnapshot
 
 object WearLoopTileContent {
@@ -9,15 +9,15 @@ object WearLoopTileContent {
 
     fun title(
         snapshot: MadridTransitSnapshot?,
-        selectedPlace: MadridTransitPlace? = null,
+        selectedProfile: MadridTransitPlaceProfile? = null,
     ): String {
-        val place = snapshot?.headline?.place ?: selectedPlace
-        return place?.let { "${it.label} · Madrid" } ?: "Madrid Wrist"
+        val label = selectedProfile?.label ?: snapshot?.headline?.place?.label
+        return label?.let { "$it · Madrid" } ?: "Madrid Wrist"
     }
 
     fun body(snapshot: MadridTransitSnapshot?): String {
         val headline = snapshot?.headline ?: return "Sin datos"
-        return "${headline.routeLabel} ${headline.timeLabel}"
+        return "${headline.displayRouteLabel} ${headline.timeLabel}"
     }
 
     fun footer(snapshot: MadridTransitSnapshot?): String {

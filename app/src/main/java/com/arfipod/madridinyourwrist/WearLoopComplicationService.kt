@@ -9,6 +9,7 @@ import androidx.wear.watchface.complications.datasource.ComplicationRequest
 import androidx.wear.watchface.complications.datasource.SuspendingComplicationDataSourceService
 import com.arfipod.madridinyourwrist.transit.MadridTransitKind
 import com.arfipod.madridinyourwrist.transit.MadridTransitPlace
+import com.arfipod.madridinyourwrist.transit.MadridTransitPlaceProfile
 import com.arfipod.madridinyourwrist.transit.MadridTransitSnapshot
 import com.arfipod.madridinyourwrist.transit.MadridTransitSnapshotItem
 import com.arfipod.madridinyourwrist.transit.MadridTransitSnapshotStore
@@ -17,12 +18,13 @@ import com.arfipod.madridinyourwrist.transit.MadridTransitStore
 class WearLoopComplicationService : SuspendingComplicationDataSourceService() {
     override suspend fun onComplicationRequest(request: ComplicationRequest): ComplicationData =
         if (request.complicationType == ComplicationType.SHORT_TEXT) {
-            val selectedPlace = MadridTransitStore(applicationContext).loadSelectedPlace()
+            val store = MadridTransitStore(applicationContext)
+            val selectedPlace = store.loadSelectedPlace()
             shortTextComplicationData(
                 snapshot = MadridTransitSnapshotStore(applicationContext)
                     .loadSnapshot()
                     ?.forPlace(selectedPlace),
-                selectedPlace = selectedPlace,
+                selectedProfile = store.loadProfile(selectedPlace),
                 buildTimestamp = BuildConfig.BUILD_TIMESTAMP,
             )
         } else {
@@ -48,7 +50,9 @@ class WearLoopComplicationService : SuspendingComplicationDataSourceService() {
                         )
                     ),
                 ),
-                selectedPlace = MadridTransitPlace.PROFILE_1,
+                selectedProfile = MadridTransitPlaceProfile(
+                    place = MadridTransitPlace.PROFILE_1,
+                ),
                 buildTimestamp = "2026-06-02T00:00:00Z",
             )
         } else {
@@ -57,7 +61,7 @@ class WearLoopComplicationService : SuspendingComplicationDataSourceService() {
 
     private fun shortTextComplicationData(
         snapshot: MadridTransitSnapshot?,
-        selectedPlace: MadridTransitPlace?,
+        selectedProfile: MadridTransitPlaceProfile?,
         buildTimestamp: String,
     ): ShortTextComplicationData =
         ShortTextComplicationData.Builder(
@@ -65,9 +69,9 @@ class WearLoopComplicationService : SuspendingComplicationDataSourceService() {
             contentDescription = PlainComplicationText.Builder(
                 WearLoopComplicationContent.contentDescription(snapshot, buildTimestamp)
             ).build(),
-        )
+            )
             .setTitle(
-                PlainComplicationText.Builder(WearLoopComplicationContent.title(snapshot, selectedPlace)).build()
+                PlainComplicationText.Builder(WearLoopComplicationContent.title(snapshot, selectedProfile)).build()
             )
             .build()
 }

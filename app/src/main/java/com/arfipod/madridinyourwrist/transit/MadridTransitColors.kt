@@ -3,13 +3,17 @@ package com.arfipod.madridinyourwrist.transit
 object MadridTransitColors {
     const val EMT_BUS_BRAND_ARGB: Long = 0xFF0055A0
     const val INTERURBAN_BUS_BRAND_ARGB: Long = 0xFF64A70B
+    const val CERCANIAS_TRAIN_BRAND_ARGB: Long = 0xFFE30613
     const val FALLBACK_BUS_BRAND_ARGB: Long = INTERURBAN_BUS_BRAND_ARGB
 
     fun brandArgbForOption(option: MadridTransitOption): Long {
         return brandArgbFor(
             kind = option.kind,
             source = option.source,
-            routeLabel = option.metroTarget?.routeNameQuery ?: option.busTarget?.lineId ?: option.label,
+            routeLabel = option.metroTarget?.routeNameQuery
+                ?: option.busTarget?.lineId
+                ?: option.trainTarget?.lineId
+                ?: option.label,
         )
     }
 
@@ -48,6 +52,7 @@ object MadridTransitColors {
                 MadridTransitSource.CRTM_STATIC_GTFS -> INTERURBAN_BUS_BRAND_ARGB
                 MadridTransitSource.METRO_NAP -> FALLBACK_BUS_BRAND_ARGB
             }
+            MadridTransitKind.TRAIN -> CERCANIAS_TRAIN_BRAND_ARGB
         }
     }
 

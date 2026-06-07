@@ -2,6 +2,8 @@ package com.arfipod.madridinyourwrist
 
 import com.arfipod.madridinyourwrist.transit.MadridTransitKind
 import com.arfipod.madridinyourwrist.transit.MadridTransitPlace
+import com.arfipod.madridinyourwrist.transit.MadridTransitPlaceProfile
+import com.arfipod.madridinyourwrist.transit.MadridTransitProfileIcon
 import com.arfipod.madridinyourwrist.transit.MadridTransitSnapshot
 import com.arfipod.madridinyourwrist.transit.MadridTransitSnapshotItem
 import org.junit.Assert.assertEquals
@@ -20,16 +22,51 @@ class WearLoopTileContentTest {
             )
         )
 
-        assertEquals("Perfil 1 · Madrid", WearLoopTileContent.title(snapshot, MadridTransitPlace.PROFILE_1))
+        assertEquals(
+            "Trabajo · Madrid",
+            WearLoopTileContent.title(
+                snapshot,
+                MadridTransitPlaceProfile(
+                    place = MadridTransitPlace.PROFILE_1,
+                    customName = "Trabajo",
+                    icon = MadridTransitProfileIcon.BRIEFCASE,
+                ),
+            ),
+        )
         assertEquals("E3 4m", WearLoopTileContent.body(snapshot))
         assertEquals("Daroca E3 · 08:15", WearLoopTileContent.footer(snapshot))
     }
 
     @Test
     fun tileFallbackTextStaysUsefulWithoutCache() {
-        assertEquals("Perfil 2 · Madrid", WearLoopTileContent.title(null, MadridTransitPlace.PROFILE_2))
+        assertEquals(
+            "María · Madrid",
+            WearLoopTileContent.title(
+                null,
+                MadridTransitPlaceProfile(
+                    place = MadridTransitPlace.PROFILE_2,
+                    customName = "María",
+                    icon = MadridTransitProfileIcon.HEART,
+                ),
+            ),
+        )
         assertEquals("Sin datos", WearLoopTileContent.body(null))
         assertEquals("Abre la app y toca ↻", WearLoopTileContent.footer(null))
+    }
+
+    @Test
+    fun tileShowsMetroLineNumberWithoutLegacyLPrefix() {
+        val snapshot = snapshot(
+            item(
+                kind = MadridTransitKind.METRO,
+                place = MadridTransitPlace.PROFILE_1,
+                optionLabel = "Argüelles",
+                routeLabel = "L4",
+                timeLabel = "2m",
+            )
+        )
+
+        assertEquals("4 2m", WearLoopTileContent.body(snapshot))
     }
 
     @Test
@@ -41,13 +78,14 @@ class WearLoopTileContentTest {
         MadridTransitSnapshot(updatedAt = "08:15", items = items.toList())
 
     private fun item(
+        kind: MadridTransitKind = MadridTransitKind.BUS,
         place: MadridTransitPlace,
         optionLabel: String,
         routeLabel: String,
         timeLabel: String,
     ): MadridTransitSnapshotItem = MadridTransitSnapshotItem(
         optionId = optionLabel,
-        kind = MadridTransitKind.BUS,
+        kind = kind,
         place = place,
         optionLabel = optionLabel,
         detail = "Valderrivas",

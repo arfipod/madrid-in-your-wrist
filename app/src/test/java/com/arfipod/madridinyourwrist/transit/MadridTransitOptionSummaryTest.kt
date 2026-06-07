@@ -40,11 +40,25 @@ class MadridTransitOptionSummaryTest {
 
         val summary = MadridTransitOptionSummaries.from(option)
 
-        assertEquals("L4", summary.lineLabel)
+        assertEquals("4", summary.lineLabel)
         assertEquals("Argüelles", summary.stopName)
         assertEquals("Metro", summary.serviceLabel)
         assertEquals("Estación 54", summary.stopCodeLabel)
         assertEquals("Pinar DE Chamartin", summary.destinationLabel)
         assertNull(summary.availabilityLabel)
+    }
+
+    @Test
+    fun cercaniasSummaryIncludesLineStationIdAndCatalogOnlyAvailability() {
+        val option = requireNotNull(MadridTransitCatalog.optionById("tren_cercanias_c3_11_aranjuez"))
+
+        val summary = MadridTransitOptionSummaries.from(option)
+
+        assertEquals("C3", summary.lineLabel)
+        assertEquals("Madrid Atocha Cercanías", summary.stopName)
+        assertEquals("Cercanías", summary.serviceLabel)
+        assertEquals("Estación 11", summary.stopCodeLabel)
+        assertEquals("Aranjuez", summary.destinationLabel)
+        assertEquals("solo catálogo", summary.availabilityLabel)
     }
 }

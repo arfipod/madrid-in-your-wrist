@@ -31,19 +31,22 @@ Host workflow: WSL2 Ubuntu, Docker, Gradle wrapper, VS Code/Codex, and ADB Wi-Fi
 ## What The App Does
 
 - Launches a Wear OS Activity for `Madrid Wrist`.
-- Stores Metro and bus favorites directly on the watch.
-- Groups favorites into generic profiles: `Perfil 1`, `Perfil 2`, `Perfil 3`.
+- Stores Metro, bus, and Cercanías favorites directly on the watch.
+- Groups favorites into generic profiles that can be renamed and assigned an
+  icon from the watch.
 - Shows the soonest cached or freshly loaded arrival in a top glance card.
-- Adds Metro, Metro Ligero, EMT, and interurban bus options from watch
+- Adds Metro, Metro Ligero, EMT, interurban bus, and Cercanías options from watch
   search/pickers and nearby sorting.
 - Supports on-watch text search across the local catalog by station, stop,
-  stop ID, line, destination, and aliases, with accent-insensitive matching.
+  stop ID, line, destination, and aliases, with accent-insensitive matching and
+  compact no-space queries such as `54l4pinar`.
 - Shows search/nearby results with line, station/stop name, stop code,
   destination, service type, and distance split into stable fields.
-- Ships a generated local catalog from official CRTM GTFS feeds: 37,308
+- Ships a generated local catalog from official CRTM feeds: 37,661
   line/stop/destination options at the time of generation.
-- Uses transport-aware colors: Metro/Metro Ligero line colors, EMT blue, and
-  interurban green, with brighter text variants for the dark watch UI.
+- Uses transport-aware colors: Metro/Metro Ligero line colors, EMT blue,
+  interurban green, and Cercanías red, with brighter text variants for the dark
+  watch UI.
 - Lets each favorite configure visible arrival count and optional proximity
   trigger radius (`500m`, `1km`, `2km`).
 - Lets each favorite override its visible name and short icon from the Wear OS
@@ -81,6 +84,8 @@ artifacts/                   Runtime outputs, ignored by Git
   invariants, build/test/device loops, CI, troubleshooting, and change rules.
 - [Madrid Wrist](docs/madrid-in-your-wrist.md): product behavior, profiles,
   online/offline policy, catalog, screenshots, and code map.
+- [Madrid Wrist usability test](docs/madrid-wrist-usability-test.md): Pixel
+  Watch 3 profile/favorite setup run and findings.
 - [Closed-loop workflow](docs/closed-loop-workflow.md): shortest build,
   install, launch, screenshot, and logcat commands.
 - [Pixel Watch 3 setup](docs/pixel-watch-3-setup.md): ADB Wi-Fi pairing and

@@ -59,4 +59,11 @@ class MadridTransitColorsTest {
             MadridTransitColors.brandArgbForSnapshotItem(item),
         )
     }
+
+    @Test
+    fun cercaniasUsesTrainBrandColor() {
+        val train = requireNotNull(MadridTransitCatalog.optionById("tren_cercanias_c1_142_aeropuerto_t4"))
+
+        assertEquals(MadridTransitColors.CERCANIAS_TRAIN_BRAND_ARGB, MadridTransitColors.brandArgbForOption(train))
+    }
 }

@@ -8,21 +8,26 @@ transport dashboard directly.
 
 The watch app can be operated entirely from Wear OS:
 
-- Shows a persisted list of Metro and bus favorites grouped into generic
-  profiles: `Perfil 1`, `Perfil 2`, and `Perfil 3`.
+- Shows a persisted list of Metro, bus, and Cercanías favorites grouped into generic
+  profiles. The current watch UI exposes three profiles, each with an editable
+  name and selectable icon.
 - Shows a large top glance card with the soonest cached or freshly loaded
   departure/arrival for the selected profile.
-- Adds Metro, Metro Ligero, EMT, and interurban bus options from separate
+- Adds Metro, Metro Ligero, EMT, interurban bus, and Cercanías options from separate
   search/picker screens into the currently selected profile.
 - Opens the Wear OS keyboard for text search and matches the local catalog by
   station, stop, stop ID, line, destination, and aliases without requiring
-  accents or common connector words such as `de`, `la`, or `el`.
+  accents or common connector words such as `de`, `la`, or `el`. The matcher
+  also understands compact no-space queries such as `54l4pinar` or
+  `puertadeargandal9paco`.
 - Keeps nearby/search result cards readable on the watch by giving line,
   station/stop name, stop code, destination, service type, and distance their
   own compact fields.
 - Uses transport-aware colors for labels, result lines, and top glance
-  highlights: Metro/Metro Ligero line colors, EMT blue, and interurban green,
-  with brighter text variants for the dark watch UI.
+  highlights: Metro/Metro Ligero line colors, EMT blue, interurban green, and
+  Cercanías red, with brighter text variants for the dark watch UI.
+- Lets the selected profile be renamed and assigned an icon from `EDIT` →
+  `PERFIL`, using the Wear OS keyboard and a small set of eligible icons.
 - Lets each favorite choose how many upcoming departures or arrivals to show, but
   keeps count/delete controls behind an explicit `EDIT` mode to make the default
   path glance-first.
@@ -47,8 +52,8 @@ The watch app can be operated entirely from Wear OS:
 - Feeds the Wear OS Tile and `SHORT_TEXT` complication from the last cached
   snapshot instead of doing network work from those glance surfaces.
 
-Favorites, counts, selected profile, custom favorite names/icons, proximity
-trigger settings, and the latest transit snapshot are stored in
+Favorites, counts, selected profile, custom profile names/icons, custom favorite
+names/icons, proximity trigger settings, and the latest transit snapshot are stored in
 `SharedPreferences`, so the watch keeps useful data between app launches. The
 first launch seeds one Metro favorite and one EMT bus favorite in `Perfil 1`.
 
@@ -62,6 +67,7 @@ CRTM GTFS Red de Metro:                    491 options
 CRTM GTFS Red de Metro Ligero:             106 options
 CRTM GTFS Red de EMT:                   11,943 options
 CRTM GTFS Red de Autobuses Interurbanos: 24,768 options
+CRTM Red de Cercanías:                    353 options
 ```
 
 Feed item IDs:
@@ -71,6 +77,9 @@ Metro:         5c7f2951962540d69ffe8f640d94c246
 Metro Ligero:  aaed26cc0ff64b0c947ac0bc3e033196
 EMT:           868df0e58fca47e79b942902dffd7da0
 Interurbanos:  885399f83408473c8d815e40c5e702b7
+Cercanías GTFS: 1a25440bf66f499bae2657ec7fb40144
+Cercanías líneas:
+  d8b923d04ffa455981cba8b530e44230
 ```
 
 The generator writes
@@ -85,6 +94,13 @@ Downloaded GTFS zips are cached under `artifacts/gtfs/`, which is ignored by
 Git. The generated Kotlin source is committed so normal builds do not need
 network access.
 
+The public Cercanías GTFS currently exposes routes and stations but no trips or
+stop times. The generator therefore combines that GTFS station data with the
+official CRTM `M5_Lineas` Feature Service, which provides the line/station/order
+relationship by itinerary. Cercanías options are searchable, addable, sortable
+by distance, and usable for proximity triggers, but they are catalog-only until
+there is a runtime source with usable live or scheduled departures.
+
 Metro uses the NAP/GTFS implementation documented in
 [`metro-madrid-nap.md`](metro-madrid-nap.md). It downloads the Metro de
 Madrid GTFS-ZIP dataset with `BuildConfig.NAP_API_KEY` and computes upcoming
@@ -96,22 +112,25 @@ Bus uses the EMT Madrid MobilityLabs implementation documented in
 `BuildConfig.EMT_EMAIL`/`BuildConfig.EMT_PASSWORD`, then calls the stop arrivals
 endpoint.
 
-Metro NAP and EMT OpenAPI are the live integrations today. Metro Ligero and
-interurban bus options are catalog-only for now: users can find them, save them,
-sort them by distance, and use proximity triggers, but refresh shows `Solo
-catálogo GTFS` until a live or planned-schedule runtime is added for those feeds.
+Metro NAP and EMT OpenAPI are the live integrations today. Metro Ligero,
+interurban bus, and Cercanías options are catalog-only for now: users can find
+them, save them, sort them by distance, and use proximity triggers, but refresh
+shows `Solo catálogo GTFS` until a live or planned-schedule runtime is added for
+those feeds.
 This version uses the generated official catalog as the sole catalog source; old
 hand-curated favorite IDs are not preserved.
 
 ## Favorites And Profiles
 
 Profiles are generic buckets for transit favorites. A favorite can represent a
-Metro line/station/destination pair or a bus line/stop/destination pair. The
-same station or stop can be saved in more than one profile, with independent
-counts and proximity trigger settings.
+  Metro line/station/destination pair, a bus line/stop/destination pair, or a
+  Cercanías line/station/destination pair. The same station or stop can be saved in more than one profile, with independent
+counts, aliases, and proximity trigger settings.
 
-The current watch UI supports three built-in profiles. This version does not
-migrate earlier personal profile labels or hand-curated favorite IDs.
+The current watch UI supports three profile slots. Default labels are `Perfil 1`,
+`Perfil 2`, and `Perfil 3`, but users can rename them and choose icons such as
+briefcase, heart, home, star, or pin. This version does not migrate earlier
+personal profile labels or hand-curated favorite IDs.
 
 ## Online And Offline Policy
 
@@ -149,7 +168,7 @@ complication read the last cached snapshot for the selected profile and format i
 for quick glances:
 
 ```text
-Tile title:       Perfil 1 · Madrid
+Tile title:       Trabajo · Madrid
 Tile body:        E3 4m
 Tile footer:      Daroca E3 · 08:15
 Complication:     E3 4m
@@ -163,6 +182,9 @@ seconds for the complication.
 ## Screenshots
 
 Captured from the installed debug APK on a real Pixel Watch 3.
+
+For the latest end-to-end profile/favorite setup run, see
+[`madrid-wrist-usability-test.md`](madrid-wrist-usability-test.md).
 
 ![Madrid Wrist home top](images/madrid-wrist/home-top.png)
 
@@ -186,8 +208,8 @@ Captured from the installed debug APK on a real Pixel Watch 3.
 MainActivity.kt                    Launcher for Madrid Wrist
 MadridInYourWristApp.kt            Wear OS Compose product UI
 transit/MadridTransitModels.kt     Catalog, profiles, favorites, counts, distance sorting
-transit/MadridGeneratedTransitCatalog.kt Generated official GTFS catalog index
-transit/MadridTransitColors.kt     Metro, EMT, and interurban text/brand colors
+transit/MadridGeneratedTransitCatalog.kt Generated official CRTM catalog index
+transit/MadridTransitColors.kt     Metro, EMT, interurban, and Cercanías colors
 transit/MadridTransitOptionSummary.kt Compact display fields for search/nearby cards
 transit/MadridMetroLineColors.kt   Metro, Ramal, and Metro Ligero color palette
 transit/MadridTransitSearch.kt     Accent-insensitive station/stop/line matcher
@@ -196,10 +218,10 @@ transit/MadridEmtTransit.kt        EMT OpenAPI client and arrival parser
 transit/MadridTransitStore.kt      SharedPreferences favorites/profile persistence
 transit/MadridTransitSnapshot.kt   Cached next-arrival snapshot for Activity, Tile, complication
 transit/MadridTransitRefreshPolicy.kt Online/offline cache decision policy
-transit/MadridTransitRuntime.kt    Runtime loading across Metro and bus favorites
+transit/MadridTransitRuntime.kt    Runtime loading across live and catalog-only favorites
 transit/MadridLocationProvider.kt  Platform last-known-location helper
 transit/MadridNetworkProvider.kt   Platform validated-internet helper
-tools/generate_transit_catalog.py  Official CRTM GTFS catalog generator
+tools/generate_transit_catalog.py  Official CRTM catalog generator
 WearLoopTileService.kt             ProtoLayout Tile fed by cached selected-profile snapshot
 WearLoopComplicationService.kt     SHORT_TEXT complication fed by cached selected-profile snapshot
 ```

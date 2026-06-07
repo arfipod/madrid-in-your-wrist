@@ -53,7 +53,9 @@ class MadridTransitSnapshotTest {
             ),
         )
 
-        assertEquals("L4", snapshot.headline?.routeLabel)
+        assertEquals("4", snapshot.headline?.routeLabel)
+        assertEquals("4", snapshot.headline?.displayRouteLabel)
+        assertEquals("Argüelles", snapshot.headline?.optionLabel)
         assertEquals("2m", snapshot.headline?.timeLabel)
     }
 
@@ -81,6 +83,7 @@ class MadridTransitSnapshotTest {
         val decoded = MadridTransitSnapshotCodec.decode(MadridTransitSnapshotCodec.encode(snapshot))
 
         assertEquals(snapshot, decoded)
+        assertEquals("4", decoded?.items?.single()?.displayRouteLabel)
     }
 
     @Test

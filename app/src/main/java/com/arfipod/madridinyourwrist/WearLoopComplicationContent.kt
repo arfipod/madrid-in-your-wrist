@@ -1,6 +1,6 @@
 package com.arfipod.madridinyourwrist
 
-import com.arfipod.madridinyourwrist.transit.MadridTransitPlace
+import com.arfipod.madridinyourwrist.transit.MadridTransitPlaceProfile
 import com.arfipod.madridinyourwrist.transit.MadridTransitSnapshot
 
 object WearLoopComplicationContent {
@@ -9,15 +9,15 @@ object WearLoopComplicationContent {
 
     fun text(snapshot: MadridTransitSnapshot?): String {
         val headline = snapshot?.headline ?: return "MAD"
-        val compact = "${headline.routeLabel} ${headline.timeLabel.complicationTimeLabel()}"
+        val compact = "${headline.displayRouteLabel} ${headline.timeLabel.complicationTimeLabel()}"
         return if (compact.length <= 7) compact else compact.take(7)
     }
 
     fun title(
         snapshot: MadridTransitSnapshot?,
-        selectedPlace: MadridTransitPlace? = null,
+        selectedProfile: MadridTransitPlaceProfile? = null,
     ): String {
-        return snapshot?.headline?.place?.shortLabel ?: selectedPlace?.shortLabel ?: "Transit"
+        return selectedProfile?.shortLabel ?: snapshot?.headline?.place?.shortLabel ?: "Transit"
     }
 
     fun contentDescription(
@@ -26,7 +26,7 @@ object WearLoopComplicationContent {
     ): String {
         val headline = snapshot?.headline
         if (headline != null) {
-            return "Madrid Wrist: ${headline.optionLabel}, ${headline.routeLabel} hacia " +
+            return "Madrid Wrist: ${headline.optionLabel}, ${headline.displayRouteLabel} hacia " +
                 "${headline.destination}, ${headline.timeLabel}. Actualizado ${snapshot.updatedAt}"
         }
         val shortTimestamp = buildTimestamp.substringBefore('.').removeSuffix("Z")

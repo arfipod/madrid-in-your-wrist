@@ -389,23 +389,26 @@ See `docs/metro-madrid-nap.md` for NAP API key configuration and
 
 Madrid Wrist ships a committed generated catalog so normal builds do not need
 network access. The source of truth is official CRTM GTFS data from the CRTM
-open-data ArcGIS portal:
+open-data ArcGIS portal, plus the official Cercanías line Feature Service
+because the public Cercanías GTFS exposes routes/stations but no trips or
+stop-times:
 
 ```bash
 python3 tools/generate_transit_catalog.py
 ```
 
-The generator downloads GTFS zips into ignored `artifacts/gtfs/` cache files and
-rewrites:
+The generator downloads GTFS zips and the Cercanías line JSON into ignored
+`artifacts/gtfs/` cache files and rewrites:
 
 ```text
 app/src/main/java/com/arfipod/madridinyourwrist/transit/MadridGeneratedTransitCatalog.kt
 ```
 
-Metro NAP and EMT OpenAPI options have live integrations. Metro Ligero and
-interurban bus options are currently catalog-only; they can be searched, saved,
-sorted by distance, and used for proximity triggers, but refreshes report `Solo
-catálogo GTFS` until a live or planned-schedule runtime is implemented.
+Metro NAP and EMT OpenAPI options have live integrations. Metro Ligero,
+interurban bus, and Cercanías options are currently catalog-only; they can be
+searched, saved, sorted by distance, and used for proximity triggers, but
+refreshes report `Solo catálogo GTFS` until a live or planned-schedule runtime
+is implemented.
 
 ## CI process
 

@@ -2,6 +2,8 @@ package com.arfipod.madridinyourwrist
 
 import com.arfipod.madridinyourwrist.transit.MadridTransitKind
 import com.arfipod.madridinyourwrist.transit.MadridTransitPlace
+import com.arfipod.madridinyourwrist.transit.MadridTransitPlaceProfile
+import com.arfipod.madridinyourwrist.transit.MadridTransitProfileIcon
 import com.arfipod.madridinyourwrist.transit.MadridTransitSnapshot
 import com.arfipod.madridinyourwrist.transit.MadridTransitSnapshotItem
 import org.junit.Assert.assertEquals
@@ -15,7 +17,17 @@ class WearLoopComplicationContentTest {
 
         assertEquals("E3 4m", WearLoopComplicationContent.text(snapshot))
         assertTrue(WearLoopComplicationContent.text(snapshot).length <= 7)
-        assertEquals("P1", WearLoopComplicationContent.title(snapshot, MadridTransitPlace.PROFILE_1))
+        assertEquals(
+            "♥",
+            WearLoopComplicationContent.title(
+                snapshot,
+                MadridTransitPlaceProfile(
+                    place = MadridTransitPlace.PROFILE_1,
+                    customName = "María",
+                    icon = MadridTransitProfileIcon.HEART,
+                ),
+            ),
+        )
     }
 
     @Test
@@ -27,9 +39,36 @@ class WearLoopComplicationContentTest {
     }
 
     @Test
+    fun complicationShowsMetroLineNumberWithoutLegacyLPrefix() {
+        val snapshot = snapshot(
+            kind = MadridTransitKind.METRO,
+            optionLabel = "Argüelles",
+            routeLabel = "L4",
+            destination = "PINAR DE CHAMARTÍN",
+            timeLabel = "2m",
+        )
+
+        assertEquals("4 2m", WearLoopComplicationContent.text(snapshot))
+        assertEquals(
+            "Madrid Wrist: Argüelles, 4 hacia PINAR DE CHAMARTÍN, 2m. Actualizado 08:15",
+            WearLoopComplicationContent.contentDescription(snapshot, "ignored"),
+        )
+    }
+
+    @Test
     fun complicationFallbackTextIsShort() {
         assertEquals("MAD", WearLoopComplicationContent.text(null))
-        assertEquals("P2", WearLoopComplicationContent.title(null, MadridTransitPlace.PROFILE_2))
+        assertEquals(
+            "⌂",
+            WearLoopComplicationContent.title(
+                null,
+                MadridTransitPlaceProfile(
+                    place = MadridTransitPlace.PROFILE_2,
+                    customName = "Casa",
+                    icon = MadridTransitProfileIcon.HOME,
+                ),
+            ),
+        )
         assertTrue(WearLoopComplicationContent.text(null).length <= 7)
     }
 
@@ -54,17 +93,23 @@ class WearLoopComplicationContentTest {
         assertTrue(WearLoopComplicationContent.UPDATE_PERIOD_SECONDS >= 900)
     }
 
-    private fun snapshot(timeLabel: String): MadridTransitSnapshot = MadridTransitSnapshot(
+    private fun snapshot(
+        kind: MadridTransitKind = MadridTransitKind.BUS,
+        optionLabel: String = "Daroca E3",
+        routeLabel: String = "E3",
+        destination: String = "VALDERRIVAS",
+        timeLabel: String,
+    ): MadridTransitSnapshot = MadridTransitSnapshot(
         updatedAt = "08:15",
         items = listOf(
             MadridTransitSnapshotItem(
                 optionId = "bus_emt_e3_1064_valderrivas",
-                kind = MadridTransitKind.BUS,
+                kind = kind,
                 place = MadridTransitPlace.PROFILE_1,
-                optionLabel = "Daroca E3",
+                optionLabel = optionLabel,
                 detail = "Valderrivas",
-                routeLabel = "E3",
-                destination = "VALDERRIVAS",
+                routeLabel = routeLabel,
+                destination = destination,
                 timeLabel = timeLabel,
                 rankMinutes = timeLabel.removeSuffix("m").toIntOrNull() ?: 0,
             )

@@ -11,6 +11,8 @@ class MadridMetroLineColorsTest {
         assertEquals("4", MadridMetroLineColors.normalizeLineId("L4"))
         assertEquals("4", MadridMetroLineColors.normalizeLineId("linea 4"))
         assertEquals("10", MadridMetroLineColors.normalizeLineId("Line 10"))
+        assertEquals("4", "L4".madridTransitShortRoute())
+        assertEquals("9", "Linea 9".madridTransitShortRoute())
     }
 
     @Test
@@ -20,6 +22,7 @@ class MadridMetroLineColorsTest {
         assertEquals("ML1", MadridMetroLineColors.normalizeLineId("ML1"))
         assertEquals("ML2", MadridMetroLineColors.normalizeLineId("ml 2"))
         assertEquals("ML3", MadridMetroLineColors.normalizeLineId("ml-3"))
+        assertEquals("ML2", "ML2".madridTransitShortRoute())
     }
 
     @Test

@@ -16,10 +16,11 @@ class MadridTransitCatalogTest {
 
     @Test
     fun generatedOfficialCatalogIsAvailable() {
-        assertEquals(37_308, MadridGeneratedTransitCatalog.OPTION_COUNT)
-        assertTrue(MadridGeneratedTransitCatalog.options.size >= 37_000)
+        assertEquals(37_661, MadridGeneratedTransitCatalog.OPTION_COUNT)
+        assertTrue(MadridGeneratedTransitCatalog.options.size >= 37_600)
         assertTrue(MadridTransitCatalog.metroOptions.size >= 590)
         assertTrue(MadridTransitCatalog.busOptions.size >= 36_000)
+        assertTrue(MadridTransitCatalog.trainOptions.size >= 350)
         assertTrue(MadridTransitCatalog.allOptions.size >= MadridGeneratedTransitCatalog.OPTION_COUNT)
     }
 
@@ -30,12 +31,17 @@ class MadridTransitCatalogTest {
             MadridTransitCatalog.optionById("bus_interurbano_421_08046_p_delicias_plaza_de_legazpi")
         )
         val lightRail = requireNotNull(MadridTransitCatalog.optionById("metro_ligero_ml1_5_las_tablas"))
+        val cercanias = requireNotNull(MadridTransitCatalog.optionById("tren_cercanias_c1_142_aeropuerto_t4"))
 
         assertEquals(MadridTransitSource.EMT_OPENAPI, emt.source)
         assertTrue(emt.source.hasLiveArrivals)
         assertEquals(MadridTransitSource.CRTM_STATIC_GTFS, interurban.source)
         assertTrue(!interurban.source.hasLiveArrivals)
         assertEquals(MadridTransitSource.CRTM_STATIC_GTFS, lightRail.source)
+        assertEquals(MadridTransitKind.TRAIN, cercanias.kind)
+        assertEquals(MadridTransitSource.CRTM_STATIC_GTFS, cercanias.source)
+        assertTrue(!cercanias.source.hasLiveArrivals)
+        assertEquals("C1", cercanias.trainTarget?.lineId)
     }
 
     @Test
@@ -49,6 +55,30 @@ class MadridTransitCatalogTest {
         assertEquals(null, MadridTransitPlace.fromId("home"))
         assertEquals(null, MadridTransitPlace.fromId("maria"))
         assertEquals(MadridTransitPlace.PROFILE_2, MadridTransitPlace.fromId("profile_2"))
+    }
+
+    @Test
+    fun profileCustomizationCodecRoundTripsNamesAndIcons() {
+        val profiles = MadridTransitProfileCustomization.defaultProfiles() + mapOf(
+            MadridTransitPlace.PROFILE_1 to MadridTransitPlaceProfile(
+                place = MadridTransitPlace.PROFILE_1,
+                customName = "Trabajo",
+                icon = MadridTransitProfileIcon.BRIEFCASE,
+            ),
+            MadridTransitPlace.PROFILE_2 to MadridTransitPlaceProfile(
+                place = MadridTransitPlace.PROFILE_2,
+                customName = "María",
+                icon = MadridTransitProfileIcon.HEART,
+            ),
+        )
+
+        val decoded = MadridTransitProfilesCodec.decode(MadridTransitProfilesCodec.encode(profiles))
+
+        assertEquals("Trabajo", decoded.getValue(MadridTransitPlace.PROFILE_1).label)
+        assertEquals(MadridTransitProfileIcon.BRIEFCASE, decoded.getValue(MadridTransitPlace.PROFILE_1).icon)
+        assertEquals("María", decoded.getValue(MadridTransitPlace.PROFILE_2).label)
+        assertEquals(MadridTransitProfileIcon.HEART, decoded.getValue(MadridTransitPlace.PROFILE_2).icon)
+        assertEquals("Perfil 3", decoded.getValue(MadridTransitPlace.PROFILE_3).label)
     }
 
     @Test

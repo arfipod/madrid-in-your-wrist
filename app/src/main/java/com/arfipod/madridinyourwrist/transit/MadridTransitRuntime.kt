@@ -58,6 +58,10 @@ class MadridTransitRuntime(
         return when (favorite.option.kind) {
             MadridTransitKind.METRO -> loadMetro(favorite)
             MadridTransitKind.BUS -> loadBus(favorite)
+            MadridTransitKind.TRAIN -> MadridTransitLoadResult.MissingConfig(
+                favorite = favorite,
+                message = "Solo catálogo GTFS",
+            )
         }
     }
 

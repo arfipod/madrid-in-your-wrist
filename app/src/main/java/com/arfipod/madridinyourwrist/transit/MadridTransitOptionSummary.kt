@@ -44,6 +44,7 @@ object MadridTransitOptionSummaries {
             MadridTransitKind.METRO -> metroTarget
                 ?.routeNameQuery
                 ?.madridTransitShortRoute()
+                ?: labelLastToken()?.madridTransitShortRoute()
                 ?: labelLastToken()
                 ?: MadridTransitKind.METRO.label
             MadridTransitKind.BUS -> busTarget
@@ -51,6 +52,11 @@ object MadridTransitOptionSummaries {
                 ?.uppercase(Locale.ROOT)
                 ?: labelLastToken()
                 ?: MadridTransitKind.BUS.label
+            MadridTransitKind.TRAIN -> trainTarget
+                ?.lineId
+                ?.uppercase(Locale.ROOT)
+                ?: labelLastToken()
+                ?: "Cercanías"
         }
     }
 
@@ -59,6 +65,7 @@ object MadridTransitOptionSummaries {
             ?: when (kind) {
                 MadridTransitKind.METRO -> metroTarget?.stopNameQuery
                 MadridTransitKind.BUS -> busTarget?.stopName ?: busTarget?.label?.substringBefore("->")?.trim()
+                MadridTransitKind.TRAIN -> trainTarget?.stopName ?: trainTarget?.label?.substringBefore("->")?.trim()
             }?.takeIf { value -> value.isNotBlank() }
             ?: label
     }
@@ -71,6 +78,7 @@ object MadridTransitOptionSummaries {
                 MadridTransitSource.CRTM_STATIC_GTFS -> "Interurbano"
                 MadridTransitSource.METRO_NAP -> "Bus"
             }
+            MadridTransitKind.TRAIN -> "Cercanías"
         }
     }
 
@@ -84,17 +92,29 @@ object MadridTransitOptionSummaries {
                 ?.stopId
                 ?.takeIf { value -> value.isNotBlank() }
                 ?.let { value -> "Parada $value" }
+            MadridTransitKind.TRAIN -> trainTarget
+                ?.stopId
+                ?.takeIf { value -> value.isNotBlank() }
+                ?.let { value -> "Estación $value" }
         }
     }
 
     private fun MadridTransitOption.stopNameFromLabel(lineLabel: String): String? {
         val trimmed = label.trim()
-        val suffix = " $lineLabel"
-        return if (trimmed.uppercase(Locale.ROOT).endsWith(suffix.uppercase(Locale.ROOT))) {
-            trimmed.dropLast(suffix.length).trim().takeIf { value -> value.isNotBlank() }
-        } else {
-            null
+        val suffixes = listOfNotNull(
+            " $lineLabel",
+            if (kind == MadridTransitKind.METRO && lineLabel.all { char -> char.isDigit() }) {
+                " L$lineLabel"
+            } else {
+                null
+            },
+        )
+        suffixes.forEach { suffix ->
+            if (trimmed.uppercase(Locale.ROOT).endsWith(suffix.uppercase(Locale.ROOT))) {
+                return trimmed.dropLast(suffix.length).trim().takeIf { value -> value.isNotBlank() }
+            }
         }
+        return null
     }
 
     private fun MadridTransitOption.labelLastToken(): String? {

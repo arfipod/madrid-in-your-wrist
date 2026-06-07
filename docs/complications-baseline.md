@@ -10,7 +10,7 @@ With cached data:
 
 ```text
 Short text:        E3 4m
-Short title:       P1
+Short title:       brief selected-profile icon, for example heart/home/briefcase
 Description:       Madrid Wrist transit summary with cached update time
 Update interval:   900 seconds
 ```

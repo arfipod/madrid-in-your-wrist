@@ -19,7 +19,9 @@ class WearLoopTileService : TileService() {
     override fun onTileRequest(
         requestParams: RequestBuilders.TileRequest,
     ): ListenableFuture<Tile> {
-        val selectedPlace = MadridTransitStore(applicationContext).loadSelectedPlace()
+        val store = MadridTransitStore(applicationContext)
+        val selectedPlace = store.loadSelectedPlace()
+        val selectedProfile = store.loadProfile(selectedPlace)
         val snapshot = MadridTransitSnapshotStore(applicationContext)
             .loadSnapshot()
             ?.forPlace(selectedPlace)
@@ -27,7 +29,7 @@ class WearLoopTileService : TileService() {
             primaryLayout(
                 titleSlot = {
                     text(
-                        text = WearLoopTileContent.title(snapshot, selectedPlace).layoutString,
+                        text = WearLoopTileContent.title(snapshot, selectedProfile).layoutString,
                         typography = Typography.TITLE_MEDIUM,
                     )
                 },

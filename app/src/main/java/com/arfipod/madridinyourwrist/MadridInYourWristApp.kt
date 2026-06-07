@@ -1,6 +1,7 @@
 package com.arfipod.madridinyourwrist
 
 import android.Manifest
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -58,6 +59,9 @@ import com.arfipod.madridinyourwrist.transit.MadridTransitLoadResult
 import com.arfipod.madridinyourwrist.transit.MadridTransitOption
 import com.arfipod.madridinyourwrist.transit.MadridTransitOptionSummaries
 import com.arfipod.madridinyourwrist.transit.MadridTransitPlace
+import com.arfipod.madridinyourwrist.transit.MadridTransitPlaceProfile
+import com.arfipod.madridinyourwrist.transit.MadridTransitProfileCustomization
+import com.arfipod.madridinyourwrist.transit.MadridTransitProfileIcon
 import com.arfipod.madridinyourwrist.transit.MadridTransitProximity
 import com.arfipod.madridinyourwrist.transit.MadridTransitRefreshDecision
 import com.arfipod.madridinyourwrist.transit.MadridTransitRefreshPolicy
@@ -84,8 +88,10 @@ private enum class MadridTransitScreen {
     HOME,
     ADD_METRO,
     ADD_BUS,
+    ADD_TRAIN,
     NEARBY,
     EDIT_FAVORITE,
+    EDIT_PROFILE,
 }
 
 private sealed interface TransitUiState {
@@ -162,11 +168,13 @@ fun MadridInYourWristApp(
         }
         var screen by remember { mutableStateOf(MadridTransitScreen.HOME) }
         var selectedPlace by remember { mutableStateOf(store.loadSelectedPlace()) }
+        var profiles by remember { mutableStateOf(store.loadProfiles()) }
         var favorites by remember { mutableStateOf(store.loadFavorites()) }
         var refreshTrigger by remember { mutableStateOf(MadridTransitRefreshTrigger()) }
         var handledUserRefreshId by remember { mutableIntStateOf(0) }
         var editMode by remember { mutableStateOf(false) }
         var editingFavoriteId by remember { mutableStateOf<String?>(null) }
+        var editingProfilePlace by remember { mutableStateOf<MadridTransitPlace?>(null) }
         var lastSnapshot by remember { mutableStateOf(snapshotStore.loadSnapshot()) }
         var lastKnownLocation by remember { mutableStateOf<MadridGeoPoint?>(null) }
         var lastLocationCheckedAtMillis by remember { mutableStateOf(0L) }
@@ -201,7 +209,29 @@ fun MadridInYourWristApp(
             store.saveSelectedPlace(place)
             editMode = false
             editingFavoriteId = null
+            editingProfilePlace = null
             screen = MadridTransitScreen.HOME
+            onHaptic()
+        }
+
+        fun profileFor(place: MadridTransitPlace): MadridTransitPlaceProfile {
+            return MadridTransitProfileCustomization.profileFor(profiles, place)
+        }
+
+        fun changeProfileCustomization(
+            place: MadridTransitPlace,
+            customName: String?,
+            icon: MadridTransitProfileIcon?,
+        ) {
+            val nextProfiles = MadridTransitProfileCustomization.withProfile(
+                profiles = profiles,
+                profile = profileFor(place).withCustomization(
+                    name = customName,
+                    nextIcon = icon,
+                ),
+            )
+            profiles = nextProfiles
+            store.saveProfiles(nextProfiles)
             onHaptic()
         }
 
@@ -262,6 +292,13 @@ fun MadridInYourWristApp(
                 },
                 refresh = false,
             )
+        }
+
+        BackHandler(enabled = screen != MadridTransitScreen.HOME) {
+            editingFavoriteId = null
+            editingProfilePlace = null
+            screen = MadridTransitScreen.HOME
+            onHaptic()
         }
 
         LaunchedEffect(favoriteRefreshKeys, selectedPlace, refreshTrigger) {
@@ -447,6 +484,7 @@ fun MadridInYourWristApp(
             when (screen) {
                 MadridTransitScreen.HOME -> MadridTransitHome(
                     selectedPlace = selectedPlace,
+                    profiles = profiles,
                     favorites = favorites,
                     snapshot = lastSnapshot,
                     lastKnownLocation = lastKnownLocation,
@@ -463,10 +501,16 @@ fun MadridInYourWristApp(
                     },
                     onAddMetro = { screen = MadridTransitScreen.ADD_METRO },
                     onAddBus = { screen = MadridTransitScreen.ADD_BUS },
+                    onAddTrain = { screen = MadridTransitScreen.ADD_TRAIN },
                     onNearby = { screen = MadridTransitScreen.NEARBY },
                     onMinus = { optionId -> changeCount(optionId, -1) },
                     onPlus = { optionId -> changeCount(optionId, 1) },
                     onToggleProximity = ::changeProximityTrigger,
+                    onEditProfile = {
+                        editingProfilePlace = selectedPlace
+                        screen = MadridTransitScreen.EDIT_PROFILE
+                        onHaptic()
+                    },
                     onEditFavorite = { optionId ->
                         editingFavoriteId = optionId
                         screen = MadridTransitScreen.EDIT_FAVORITE
@@ -513,9 +557,38 @@ fun MadridInYourWristApp(
                         )
                     }
                 }
+                MadridTransitScreen.EDIT_PROFILE -> {
+                    val profile = profileFor(editingProfilePlace ?: selectedPlace)
+                    MadridProfileEditScreen(
+                        profile = profile,
+                        onSave = { name, icon ->
+                            changeProfileCustomization(
+                                place = profile.place,
+                                customName = name,
+                                icon = icon,
+                            )
+                            editingProfilePlace = null
+                            screen = MadridTransitScreen.HOME
+                        },
+                        onClear = {
+                            changeProfileCustomization(
+                                place = profile.place,
+                                customName = null,
+                                icon = null,
+                            )
+                            editingProfilePlace = null
+                            screen = MadridTransitScreen.HOME
+                        },
+                        onBack = {
+                            editingProfilePlace = null
+                            screen = MadridTransitScreen.HOME
+                        },
+                    )
+                }
                 MadridTransitScreen.ADD_METRO -> MadridTransitPicker(
                     title = "Metro",
                     place = selectedPlace,
+                    profile = profileFor(selectedPlace),
                     kind = MadridTransitKind.METRO,
                     favorites = favorites,
                     onAdd = ::addOption,
@@ -524,13 +597,24 @@ fun MadridInYourWristApp(
                 MadridTransitScreen.ADD_BUS -> MadridTransitPicker(
                     title = "Bus",
                     place = selectedPlace,
+                    profile = profileFor(selectedPlace),
                     kind = MadridTransitKind.BUS,
+                    favorites = favorites,
+                    onAdd = ::addOption,
+                    onBack = { screen = MadridTransitScreen.HOME },
+                )
+                MadridTransitScreen.ADD_TRAIN -> MadridTransitPicker(
+                    title = "Cercanías",
+                    place = selectedPlace,
+                    profile = profileFor(selectedPlace),
+                    kind = MadridTransitKind.TRAIN,
                     favorites = favorites,
                     onAdd = ::addOption,
                     onBack = { screen = MadridTransitScreen.HOME },
                 )
                 MadridTransitScreen.NEARBY -> MadridNearbyScreen(
                     place = selectedPlace,
+                    profile = profileFor(selectedPlace),
                     favorites = favorites,
                     initialLocation = lastKnownLocation,
                     onLocationChanged = { location ->
@@ -548,6 +632,7 @@ fun MadridInYourWristApp(
 @Composable
 private fun MadridTransitHome(
     selectedPlace: MadridTransitPlace,
+    profiles: Map<MadridTransitPlace, MadridTransitPlaceProfile>,
     favorites: List<MadridTransitFavorite>,
     snapshot: MadridTransitSnapshot?,
     lastKnownLocation: MadridGeoPoint?,
@@ -558,13 +643,16 @@ private fun MadridTransitHome(
     onToggleEdit: () -> Unit,
     onAddMetro: () -> Unit,
     onAddBus: () -> Unit,
+    onAddTrain: () -> Unit,
     onNearby: () -> Unit,
     onMinus: (String) -> Unit,
     onPlus: (String) -> Unit,
     onToggleProximity: (String) -> Unit,
+    onEditProfile: () -> Unit,
     onEditFavorite: (String) -> Unit,
     onRemove: (String) -> Unit,
 ) {
+    val selectedProfile = MadridTransitProfileCustomization.profileFor(profiles, selectedPlace)
     val visibleFavorites = favorites.filter { favorite -> favorite.place == selectedPlace }
     val visibleFavoriteIds = visibleFavorites.map { favorite -> favorite.option.id }.toSet()
     val loadedResults = (uiState as? TransitUiState.Loaded)?.results.orEmpty()
@@ -584,15 +672,16 @@ private fun MadridTransitHome(
         verticalArrangement = Arrangement.spacedBy(7.dp),
     ) {
         Header(
-            title = "Madrid Wrist",
-            subtitle = "${selectedPlace.label} · ${uiState.headerStatus()}",
+            title = "Transporte Madrid",
+            subtitle = "${selectedProfile.label} · ${uiState.headerStatus()}",
         )
         PlaceSelector(
             selectedPlace = selectedPlace,
+            profiles = profiles,
             onPlaceSelected = onPlaceSelected,
         )
         NextGlanceBlock(
-            selectedPlace = selectedPlace,
+            selectedProfile = selectedProfile,
             headline = headline,
             headlineFavorite = headline?.let { item ->
                 visibleFavorites.firstOrNull { favorite -> favorite.option.id == item.optionId }
@@ -622,9 +711,16 @@ private fun MadridTransitHome(
                 onClick = onToggleEdit,
             )
         }
+        if (editMode) {
+            SmallActionButton(
+                modifier = Modifier.fillMaxWidth(),
+                label = "PERFIL",
+                onClick = onEditProfile,
+            )
+        }
 
         if (visibleFavorites.isEmpty()) {
-            EmptyBlock(text = "Sin favoritos en ${selectedPlace.label}")
+            EmptyBlock(text = "Sin favoritos en ${selectedProfile.label}")
         } else {
             visibleFavorites.forEach { favorite ->
                 val result = loadedResults.firstOrNull { result ->
@@ -665,6 +761,11 @@ private fun MadridTransitHome(
                 label = "+ BUS",
                 onClick = onAddBus,
             )
+            SmallActionButton(
+                modifier = Modifier.weight(1f),
+                label = "+ TREN",
+                onClick = onAddTrain,
+            )
         }
     }
 }
@@ -672,6 +773,7 @@ private fun MadridTransitHome(
 @Composable
 private fun PlaceSelector(
     selectedPlace: MadridTransitPlace,
+    profiles: Map<MadridTransitPlace, MadridTransitPlaceProfile>,
     onPlaceSelected: (MadridTransitPlace) -> Unit,
 ) {
     Row(
@@ -679,9 +781,10 @@ private fun PlaceSelector(
         horizontalArrangement = Arrangement.spacedBy(5.dp),
     ) {
         MadridTransitPlace.selectable.forEach { place ->
+            val profile = MadridTransitProfileCustomization.profileFor(profiles, place)
             SmallActionButton(
                 modifier = Modifier.weight(1f),
-                label = place.selectorLabel(isSelected = place == selectedPlace),
+                label = profile.selectorLabel(isSelected = place == selectedPlace),
                 onClick = { onPlaceSelected(place) },
             )
         }
@@ -690,7 +793,7 @@ private fun PlaceSelector(
 
 @Composable
 private fun NextGlanceBlock(
-    selectedPlace: MadridTransitPlace,
+    selectedProfile: MadridTransitPlaceProfile,
     headline: MadridTransitSnapshotItem?,
     headlineFavorite: MadridTransitFavorite?,
     isLoading: Boolean,
@@ -708,7 +811,7 @@ private fun NextGlanceBlock(
     ) {
         Text(
             modifier = Modifier.fillMaxWidth(),
-            text = "Próximo · ${selectedPlace.label}",
+            text = "Próximo · ${selectedProfile.label}",
             color = Color(0xFFC7C7C7),
             textAlign = TextAlign.Center,
             maxLines = 1,
@@ -780,7 +883,7 @@ private fun NextGlanceBlock(
                 )
                 Text(
                     modifier = Modifier.fillMaxWidth(),
-                    text = "${headline.routeLabel} · ${headlineFavorite?.displayName() ?: headline.optionLabel}",
+                    text = "${headline.displayRouteLabel} · ${headlineFavorite?.displayName() ?: headline.optionLabel}",
                     color = headline.accentColor(),
                     textAlign = TextAlign.Center,
                     maxLines = 1,
@@ -841,7 +944,7 @@ private fun NextGlanceBlock(
                 )
                 Text(
                     modifier = Modifier.fillMaxWidth(),
-                    text = "+ Metro o + Bus para ${selectedPlace.label}",
+                    text = "+ Metro o + Bus para ${selectedProfile.label}",
                     color = Color(0xFFC7C7C7),
                     textAlign = TextAlign.Center,
                     maxLines = 1,
@@ -945,6 +1048,93 @@ private fun MadridFavoriteEditMissingScreen(
 }
 
 @Composable
+private fun MadridProfileEditScreen(
+    profile: MadridTransitPlaceProfile,
+    onSave: (String, MadridTransitProfileIcon?) -> Unit,
+    onClear: () -> Unit,
+    onBack: () -> Unit,
+) {
+    var name by remember(profile.place, profile.customName) {
+        mutableStateOf(profile.customName ?: "")
+    }
+    var selectedIcon by remember(profile.place, profile.icon) {
+        mutableStateOf(profile.icon)
+    }
+    val previewLabel = MadridTransitProfileCustomization.normalizeName(name) ?: profile.place.label
+    val previewIcon = selectedIcon?.symbol ?: profile.place.shortLabel
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .wearRotaryVerticalScroll(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(7.dp),
+    ) {
+        Header(title = "Editar perfil", subtitle = profile.place.label)
+        FavoriteTextField(
+            value = name,
+            placeholder = "Nombre",
+            maxLength = MadridTransitProfileCustomization.NAME_MAX_CHARS,
+            onValueChange = { nextName ->
+                name = nextName
+                    .replace('\n', ' ')
+                    .replace('\r', ' ')
+                    .take(MadridTransitProfileCustomization.NAME_MAX_CHARS)
+            },
+        )
+        ProfileIconSelector(
+            selectedIcon = selectedIcon,
+            onIconSelected = { icon -> selectedIcon = icon },
+        )
+        EmptyBlock(text = "$previewIcon · $previewLabel")
+        SmallActionButton(
+            modifier = Modifier.fillMaxWidth(),
+            label = "GUARDAR",
+            onClick = { onSave(name, selectedIcon) },
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            SmallActionButton(
+                modifier = Modifier.weight(1f),
+                label = "LIMPIAR",
+                onClick = onClear,
+            )
+            SmallActionButton(
+                modifier = Modifier.weight(1f),
+                label = "VOLVER",
+                onClick = onBack,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProfileIconSelector(
+    selectedIcon: MadridTransitProfileIcon?,
+    onIconSelected: (MadridTransitProfileIcon?) -> Unit,
+) {
+    MadridTransitProfileIcon.selectable.chunked(3).forEach { rowIcons ->
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
+        ) {
+            rowIcons.forEach { icon ->
+                SmallActionButton(
+                    modifier = Modifier.weight(1f),
+                    label = icon.symbol,
+                    onClick = { onIconSelected(icon) },
+                )
+            }
+            repeat(3 - rowIcons.size) {
+                Box(modifier = Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+@Composable
 private fun rememberTransitSearchState(
     query: String,
     kind: MadridTransitKind?,
@@ -981,6 +1171,7 @@ private fun rememberTransitSearchState(
 private fun MadridTransitPicker(
     title: String,
     place: MadridTransitPlace,
+    profile: MadridTransitPlaceProfile,
     kind: MadridTransitKind,
     favorites: List<MadridTransitFavorite>,
     onAdd: (MadridTransitOption) -> Unit,
@@ -1011,7 +1202,7 @@ private fun MadridTransitPicker(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(7.dp),
     ) {
-        Header(title = title, subtitle = "Añadir a ${place.label}")
+        Header(title = title, subtitle = "Añadir a ${profile.label}")
         SearchField(
             query = query,
             onQueryChange = { nextQuery -> query = nextQuery },
@@ -1046,6 +1237,7 @@ private fun MadridTransitPicker(
 @Composable
 private fun MadridNearbyScreen(
     place: MadridTransitPlace,
+    profile: MadridTransitPlaceProfile,
     favorites: List<MadridTransitFavorite>,
     initialLocation: MadridGeoPoint?,
     onLocationChanged: (MadridGeoPoint?) -> Unit,
@@ -1111,7 +1303,7 @@ private fun MadridNearbyScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(7.dp),
     ) {
-        Header(title = "Cerca", subtitle = "$status · Añadir a ${place.label}")
+        Header(title = "Cerca", subtitle = "$status · Añadir a ${profile.label}")
         SmallActionButton(
             modifier = Modifier.fillMaxWidth(),
             label = "UBICAR",
@@ -1657,7 +1849,7 @@ private fun MadridTransitLoadResult?.displayLines(
     fallback: MadridTransitSnapshotItem?,
 ): List<TransitDisplayLine> = when (this) {
     null -> fallback?.let { item ->
-        listOf(TransitDisplayLine("${item.routeLabel} hacia ${item.destination}", item.accentColor()))
+        listOf(TransitDisplayLine("${item.displayRouteLabel} hacia ${item.destination}", item.accentColor()))
     } ?: listOf(TransitDisplayLine("Esperando", SecondaryTextColor))
     is MadridTransitLoadResult.Metro -> {
         val prefix = if (result.isStale) {
@@ -1685,7 +1877,7 @@ private fun MadridTransitLoadResult?.displayLines(
 
 private fun MadridTransitSnapshotItem.cachedLines(reason: String): List<TransitDisplayLine> {
     return listOf(
-        TransitDisplayLine("${routeLabel} hacia $destination", accentColor()),
+        TransitDisplayLine("${displayRouteLabel} hacia $destination", accentColor()),
         TransitDisplayLine("Cache · $reason", SecondaryTextColor),
     )
 }
@@ -1713,13 +1905,15 @@ private fun MadridTransitFavorite.accentColor(): Color = option.accentColor()
 private fun MadridTransitOption.accentColor(): Color =
     Color(MadridTransitColors.textArgbForOption(this))
 
-private fun MadridTransitFavorite.displayName(): String = normalizedCustomName ?: option.label
+private fun MadridTransitFavorite.displayName(): String =
+    normalizedCustomName ?: MadridTransitOptionSummaries.from(option).stopName
 
 private fun MadridTransitFavorite.displayIcon(): String =
     normalizedCustomIcon ?: MadridTransitOptionSummaries.from(option).lineLabel
 
-private fun MadridTransitPlace.selectorLabel(isSelected: Boolean): String {
-    return if (isSelected) shortLabel.uppercase(Locale.ROOT) else shortLabel
+private fun MadridTransitPlaceProfile.selectorLabel(isSelected: Boolean): String {
+    val label = shortLabel
+    return if (isSelected) label.uppercase(Locale.ROOT) else label
 }
 
 private fun MadridTransitFavorite.distanceFrom(location: MadridGeoPoint?): Int? {

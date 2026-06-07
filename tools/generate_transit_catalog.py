@@ -7,6 +7,7 @@ import argparse
 import csv
 import dataclasses
 import io
+import json
 import re
 import textwrap
 import time
@@ -23,6 +24,7 @@ DEFAULT_OUTPUT = (
 )
 DEFAULT_CACHE_DIR = ROOT / "artifacts/gtfs"
 ARCGIS_DATA_URL = "https://www.arcgis.com/sharing/rest/content/items/{item_id}/data"
+CERCANIAS_LINES_URL = "https://services5.arcgis.com/UxADft6QPcvFyDU1/arcgis/rest/services/M5_Lineas/FeatureServer"
 CHUNK_SIZE = 55_000
 
 
@@ -78,6 +80,15 @@ FEEDS: Tuple[Feed, ...] = (
         output_prefix="bus_interurbano",
         stop_word="Parada",
     ),
+    Feed(
+        key="cercanias",
+        label="CRTM GTFS Red de Cercanías",
+        item_id="1a25440bf66f499bae2657ec7fb40144",
+        kind="TRAIN",
+        source="CRTM_STATIC_GTFS",
+        output_prefix="tren_cercanias",
+        stop_word="Estación",
+    ),
 )
 
 
@@ -96,6 +107,7 @@ class Stop:
     description: str
     latitude: str
     longitude: str
+    location_type: str = ""
 
 
 @dataclasses.dataclass(frozen=True)
@@ -154,7 +166,13 @@ def main() -> None:
         zip_path = args.cache_dir / f"{feed.key}.zip"
         if not args.no_download or not zip_path.exists():
             download(feed.url, zip_path)
-        feed_rows = list(rows_from_feed(feed, zip_path))
+        if feed.key == "cercanias":
+            lines_cache_path = args.cache_dir / "cercanias_lines.json"
+            if not args.no_download or not lines_cache_path.exists():
+                download_cercanias_line_features(lines_cache_path)
+            feed_rows = list(rows_from_cercanias_feed(feed, zip_path, lines_cache_path))
+        else:
+            feed_rows = list(rows_from_feed(feed, zip_path))
         rows.extend(feed_rows)
         summaries.append(f"{feed.label}: {len(feed_rows)} opciones")
 
@@ -202,6 +220,136 @@ def rows_from_feed(feed: Feed, zip_path: Path) -> Iterator[CatalogRow]:
             yield catalog_row(feed, route, stop, destination)
 
 
+def rows_from_cercanias_feed(feed: Feed, zip_path: Path, lines_cache_path: Path) -> Iterator[CatalogRow]:
+    with zipfile.ZipFile(zip_path) as zf:
+        routes = {normalize_train_line(row["route_short_name"]): parse_route(row) for row in read_gtfs_table(zf, "routes.txt")}
+        stops = {row["stop_id"]: parse_stop(row) for row in read_gtfs_table(zf, "stops.txt")}
+        stops_by_code: Dict[str, Stop] = {}
+        for stop in stops.values():
+            if not stop.name:
+                continue
+            key = (stop.stop_code or stop.stop_id).strip()
+            previous = stops_by_code.get(key)
+            if previous is None or (previous.location_type != "0" and stop.location_type == "0"):
+                stops_by_code[key] = stop
+
+    raw_features = json.loads(lines_cache_path.read_text(encoding="utf-8"))
+    by_itinerary: Dict[Tuple[str, str, str], List[Dict[str, object]]] = {}
+    for feature in raw_features:
+        line = normalize_train_line(str(feature.get("CODIGOGESTIONLINEA") or feature.get("NUMEROLINEAUSUARIO") or ""))
+        station_code = clean_field(feature.get("CODIGOESTACION") or "")
+        order = int_or_none(feature.get("NUMEROORDEN"))
+        if not line or not station_code or order is None:
+            continue
+
+        key = (
+            line,
+            clean_field(feature.get("SENTIDO") or ""),
+            clean_field(feature.get("CODIGOITINERARIO") or ""),
+        )
+        by_itinerary.setdefault(key, []).append(feature)
+
+    seen: Set[Tuple[str, str, str]] = set()
+    for (line, _sentido, _itinerary), features in by_itinerary.items():
+        ordered_features = sorted(
+            features,
+            key=lambda feature: int_or_none(feature.get("NUMEROORDEN")) or 0,
+        )
+        destination = clean_field(ordered_features[-1].get("DENOMINACION") or "")
+        if not destination:
+            continue
+        route = routes.get(line) or Route(
+            route_id=f"cercanias_{line}",
+            short_name=line,
+            long_name="",
+        )
+
+        for feature in ordered_features:
+            station_code = clean_field(feature.get("CODIGOESTACION") or "")
+            stop = stops_by_code.get(station_code)
+            feature_stop_name = clean_field(feature.get("DENOMINACION") or "")
+            if stop is None and not feature_stop_name:
+                continue
+
+            stop_name = feature_stop_name or stop.name
+            synthetic_stop = Stop(
+                stop_id=stop.stop_id if stop else f"par_5_{station_code}",
+                stop_code=station_code or (stop.stop_code if stop else ""),
+                name=stop_name,
+                description=stop.description if stop else clean_field(feature.get("DIRECCION") or ""),
+                latitude=stop.latitude if stop else "",
+                longitude=stop.longitude if stop else "",
+                location_type=stop.location_type if stop else "0",
+            )
+            key = (line, synthetic_stop.stop_code or synthetic_stop.stop_id, normalized(destination))
+            if key in seen:
+                continue
+            seen.add(key)
+
+            yield catalog_row(
+                feed=feed,
+                route=Route(
+                    route_id=route.route_id,
+                    short_name=line,
+                    long_name=route.long_name,
+                ),
+                stop=synthetic_stop,
+                destination=destination,
+            )
+
+
+def download_cercanias_line_features(output: Path) -> None:
+    output.parent.mkdir(parents=True, exist_ok=True)
+    service = request_json(f"{CERCANIAS_LINES_URL}?f=json")
+    tramo_layers = [
+        layer
+        for layer in service.get("layers", [])
+        if re.search(r"_TRAMO(S)?$", layer.get("name", ""), flags=re.IGNORECASE)
+    ]
+
+    features: List[Dict[str, object]] = []
+    for layer in tramo_layers:
+        features.extend(query_feature_layer(layer_id=layer["id"], layer_name=layer.get("name", "")))
+    output.write_text(json.dumps(features, ensure_ascii=False, sort_keys=True), encoding="utf-8")
+
+
+def query_feature_layer(layer_id: int, layer_name: str) -> List[Dict[str, object]]:
+    fields = ",".join(
+        (
+            "CODIGOGESTIONLINEA",
+            "NUMEROLINEAUSUARIO",
+            "SENTIDO",
+            "CODIGOITINERARIO",
+            "CODIGOESTACION",
+            "NUMEROORDEN",
+            "DENOMINACION",
+            "DIRECCION",
+            "CORONATARIFARIA",
+        )
+    )
+    url = (
+        f"{CERCANIAS_LINES_URL}/{layer_id}/query"
+        "?f=json"
+        "&where=1%3D1"
+        f"&outFields={fields}"
+        "&returnGeometry=false"
+        "&resultRecordCount=2000"
+    )
+    data = request_json(url)
+    rows: List[Dict[str, object]] = []
+    for feature in data.get("features", []):
+        attributes = feature.get("attributes", {})
+        attributes["_layer"] = layer_name
+        rows.append(attributes)
+    return rows
+
+
+def request_json(url: str) -> Dict[str, object]:
+    request = urllib.request.Request(url, headers={"User-Agent": "MadridWristCatalogGenerator/1.0"})
+    with urllib.request.urlopen(request, timeout=120) as response:
+        return json.loads(response.read().decode("utf-8"))
+
+
 def read_gtfs_table(zf: zipfile.ZipFile, name: str) -> Iterator[Dict[str, str]]:
     with zf.open(name) as raw:
         text = io.TextIOWrapper(raw, encoding="utf-8-sig", newline="")
@@ -224,6 +372,7 @@ def parse_stop(row: Dict[str, str]) -> Stop:
         description=row.get("stop_desc", "").strip(),
         latitude=row.get("stop_lat", "").strip(),
         longitude=row.get("stop_lon", "").strip(),
+        location_type=row.get("location_type", "").strip(),
     )
 
 
@@ -333,6 +482,13 @@ def natural_key(value: str) -> Tuple[int, str]:
     return 10_000, value
 
 
+def int_or_none(value: object) -> Optional[int]:
+    try:
+        return int(str(value))
+    except (TypeError, ValueError):
+        return None
+
+
 def title_keep_acronyms(value: str) -> str:
     words = re.split(r"(\s+|-)", value.strip())
     return "".join(word if word.isspace() or word == "-" else title_word(word) for word in words)
@@ -355,6 +511,10 @@ def metro_line_label(line: str) -> str:
     return f"L{line}"
 
 
+def normalize_train_line(line: str) -> str:
+    return line.strip().upper().replace("-", "").replace(" ", "")
+
+
 def clean_field(value: object) -> str:
     return str(value).replace("\t", " ").replace("\n", " ").replace("\r", " ").strip()
 
@@ -367,12 +527,15 @@ def write_kotlin(output: Path, rows: List[CatalogRow], summaries: List[str]) -> 
     output.parent.mkdir(parents=True, exist_ok=True)
     metro_rows = [row for row in rows if row.kind == "METRO"]
     bus_rows = [row for row in rows if row.kind == "BUS"]
+    train_rows = [row for row in rows if row.kind == "TRAIN"]
     metro_chunks = chunk_text("\n".join(row.encoded() for row in metro_rows), CHUNK_SIZE)
     bus_chunks = chunk_text("\n".join(row.encoded() for row in bus_rows), CHUNK_SIZE)
+    train_chunks = chunk_text("\n".join(row.encoded() for row in train_rows), CHUNK_SIZE)
     generated_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     summary_text = "\n".join(f" * - {summary}" for summary in summaries)
     metro_chunk_literals = ",\n".join(textwrap.indent(kotlin_triple_string(chunk), "        ") for chunk in metro_chunks)
     bus_chunk_literals = ",\n".join(textwrap.indent(kotlin_triple_string(chunk), "        ") for chunk in bus_chunks)
+    train_chunk_literals = ",\n".join(textwrap.indent(kotlin_triple_string(chunk), "        ") for chunk in train_chunks)
 
     output.write_text(
         f"""package com.arfipod.madridinyourwrist.transit
@@ -394,8 +557,12 @@ object MadridGeneratedTransitCatalog {{
         parseRows(BUS_ROW_CHUNKS)
     }}
 
+    val trainOptions: List<MadridTransitOption> by lazy {{
+        parseRows(TRAIN_ROW_CHUNKS)
+    }}
+
     val options: List<MadridTransitOption> by lazy {{
-        metroOptions + busOptions
+        metroOptions + busOptions + trainOptions
     }}
 
     private val optionByIdCache = mutableMapOf<String, MadridTransitOption>()
@@ -425,7 +592,9 @@ object MadridGeneratedTransitCatalog {{
         return when {{
             id.startsWith("metro") -> optionByIdIn(METRO_ROW_CHUNKS, id)
             id.startsWith("bus") -> optionByIdIn(BUS_ROW_CHUNKS, id)
+            id.startsWith("tren") -> optionByIdIn(TRAIN_ROW_CHUNKS, id)
             else -> optionByIdIn(METRO_ROW_CHUNKS, id) ?: optionByIdIn(BUS_ROW_CHUNKS, id)
+                ?: optionByIdIn(TRAIN_ROW_CHUNKS, id)
         }}
     }}
 
@@ -500,6 +669,17 @@ object MadridGeneratedTransitCatalog {{
             }} else {{
                 null
             }},
+            trainTarget = if (kind == MadridTransitKind.TRAIN) {{
+                MadridTrainTarget(
+                    stopId = stopId,
+                    label = "$stopName $lineId -> $destination",
+                    lineId = lineId,
+                    destination = destination,
+                    stopName = stopName,
+                )
+            }} else {{
+                null
+            }},
         )
     }}
 
@@ -509,6 +689,10 @@ object MadridGeneratedTransitCatalog {{
 
     private val BUS_ROW_CHUNKS: Array<String> = arrayOf(
 {bus_chunk_literals}
+    )
+
+    private val TRAIN_ROW_CHUNKS: Array<String> = arrayOf(
+{train_chunk_literals}
     )
 }}
 """,

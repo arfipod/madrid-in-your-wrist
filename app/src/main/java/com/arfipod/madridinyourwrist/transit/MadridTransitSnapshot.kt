@@ -38,7 +38,14 @@ data class MadridTransitSnapshotItem(
     val destination: String,
     val timeLabel: String,
     val rankMinutes: Int,
-)
+) {
+    val displayRouteLabel: String
+        get() = when (kind) {
+            MadridTransitKind.METRO -> routeLabel.madridTransitShortRoute()
+            MadridTransitKind.BUS -> routeLabel.uppercase(Locale.ROOT)
+            MadridTransitKind.TRAIN -> routeLabel.uppercase(Locale.ROOT)
+        }
+}
 
 class MadridTransitSnapshotStore(context: Context) {
     private val preferences = context.getSharedPreferences(MADRID_TRANSIT_PREFS_NAME, Context.MODE_PRIVATE)
@@ -194,12 +201,13 @@ object MadridTransitSnapshotCodec {
 
 internal fun MadridTransitLoadResult.toSnapshotItem(): MadridTransitSnapshotItem? = when (this) {
     is MadridTransitLoadResult.Metro -> result.departures.firstOrNull()?.let { departure ->
+        val summary = MadridTransitOptionSummaries.from(favorite.option)
         MadridTransitSnapshotItem(
             optionId = favorite.option.id,
             kind = MadridTransitKind.METRO,
             source = favorite.option.source,
             place = favorite.place,
-            optionLabel = favorite.option.label,
+            optionLabel = summary.stopName,
             detail = favorite.option.detail,
             routeLabel = departure.routeName.madridTransitShortRoute(),
             destination = departure.destination,
@@ -209,12 +217,13 @@ internal fun MadridTransitLoadResult.toSnapshotItem(): MadridTransitSnapshotItem
     }
 
     is MadridTransitLoadResult.Bus -> arrivals.firstOrNull()?.let { arrival ->
+        val summary = MadridTransitOptionSummaries.from(favorite.option)
         MadridTransitSnapshotItem(
             optionId = favorite.option.id,
             kind = MadridTransitKind.BUS,
             source = favorite.option.source,
             place = favorite.place,
-            optionLabel = favorite.option.label,
+            optionLabel = summary.stopName,
             detail = favorite.option.detail,
             routeLabel = arrival.lineId.uppercase(Locale.ROOT),
             destination = arrival.destination,
@@ -249,12 +258,16 @@ internal fun Int.madridTransitBusRankMinutes(): Int = when {
 }
 
 internal fun String.madridTransitShortRoute(): String {
-    val firstToken = trim().substringBefore(" ").uppercase(Locale.ROOT)
-    return when {
-        firstToken.startsWith("L") -> firstToken
-        firstToken.startsWith("ML") -> firstToken
-        firstToken == "R" -> firstToken
-        else -> "L$firstToken"
+    val trimmed = trim()
+    val firstToken = trimmed.substringBefore(" ").uppercase(Locale.ROOT)
+    val normalized = MadridMetroLineColors.normalizeLineId(trimmed)
+        ?: MadridMetroLineColors.normalizeLineId(firstToken)
+    if (normalized != null) return normalized
+
+    return if (firstToken.startsWith("L") && firstToken.drop(1).all { char -> char.isDigit() }) {
+        firstToken.drop(1)
+    } else {
+        firstToken
     }
 }
 

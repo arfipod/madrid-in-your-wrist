@@ -34,6 +34,34 @@ class MadridTransitSearchTest {
     }
 
     @Test
+    fun compactTransitQueriesSplitStopLineAndDestination() {
+        assertEquals(
+            listOf("54", "l4", "pinar"),
+            MadridTransitSearch.run {
+                "54l4pinar".normalizedSearchTerms()
+            },
+        )
+        assertEquals(
+            listOf("1064", "e3", "valderrivas"),
+            MadridTransitSearch.run {
+                "1064e3valderrivas".normalizedSearchTerms()
+            },
+        )
+        assertEquals(
+            listOf("se718"),
+            MadridTransitSearch.run {
+                "se718".normalizedSearchTerms()
+            },
+        )
+        assertEquals(
+            listOf("c3", "atocha"),
+            MadridTransitSearch.run {
+                "c3atocha".normalizedSearchTerms()
+            },
+        )
+    }
+
+    @Test
     fun findsMetroByStationLineAndDestination() {
         assertEquals(
             "metro_4_54_pinar_de_chamartin",
@@ -63,6 +91,68 @@ class MadridTransitSearchTest {
                 .first()
                 .id,
         )
+    }
+
+    @Test
+    fun findsUsabilityTestFavoritesWithCompactWearKeyboardQueries() {
+        mapOf(
+            "54l4pinar" to "metro_4_54_pinar_de_chamartin",
+            "300l9puerta" to "metro_9_300_puerta_de_arganda",
+            "182l9paco" to "metro_9_182_paco_de_lucia",
+            "182l9arganda" to "metro_9_182_arganda_del_rey",
+            "61l4arguelles" to "metro_4_61_arguelles",
+        ).forEach { (query, optionId) ->
+            assertEquals(
+                optionId,
+                MadridTransitCatalog.searchOptions(query, kind = MadridTransitKind.METRO)
+                    .first()
+                    .id,
+            )
+        }
+
+        mapOf(
+            "1064e3valderrivas" to "bus_emt_e3_1064_valderrivas",
+            "1065e3felipe" to "bus_emt_e3_1065_felipe_ii",
+            "755e3valderrivas" to "bus_emt_e3_755_valderrivas",
+        ).forEach { (query, optionId) ->
+            assertEquals(
+                optionId,
+                MadridTransitCatalog.searchOptions(query, kind = MadridTransitKind.BUS)
+                    .first()
+                    .id,
+            )
+        }
+    }
+
+    @Test
+    fun findsUsabilityTestFavoritesWithSpaceFreeStationLineDestinationQueries() {
+        mapOf(
+            "arguellesl4pinar" to "metro_4_54_pinar_de_chamartin",
+            "rivasfutural9puerta" to "metro_9_300_puerta_de_arganda",
+            "puertadeargandal9paco" to "metro_9_182_paco_de_lucia",
+            "puertadeargandal9arganda" to "metro_9_182_arganda_del_rey",
+            "goyal4arguelles" to "metro_4_61_arguelles",
+        ).forEach { (query, optionId) ->
+            assertEquals(
+                optionId,
+                MadridTransitCatalog.searchOptions(query, kind = MadridTransitKind.METRO)
+                    .first()
+                    .id,
+            )
+        }
+
+        mapOf(
+            "darocacasalarreinae3valderrivas" to "bus_emt_e3_1064_valderrivas",
+            "darocacasalarreinae3felipe" to "bus_emt_e3_1065_felipe_ii",
+            "felipeiie3valderrivas" to "bus_emt_e3_755_valderrivas",
+        ).forEach { (query, optionId) ->
+            assertEquals(
+                optionId,
+                MadridTransitCatalog.searchOptions(query, kind = MadridTransitKind.BUS)
+                    .first()
+                    .id,
+            )
+        }
     }
 
     @Test
@@ -101,6 +191,18 @@ class MadridTransitSearchTest {
         assertEquals(
             "bus_emt_se718_5839_puerta_arganda",
             MadridTransitCatalog.searchOptions("Puerta de arganda se718", kind = MadridTransitKind.BUS)
+                .first()
+                .id,
+        )
+        assertEquals(
+            "tren_cercanias_c3_11_aranjuez",
+            MadridTransitCatalog.searchOptions("atocha c3 aranjuez", kind = MadridTransitKind.TRAIN)
+                .first()
+                .id,
+        )
+        assertEquals(
+            "tren_cercanias_c1_142_aeropuerto_t4",
+            MadridTransitCatalog.searchOptions("aeropuerto t4 c1", kind = MadridTransitKind.TRAIN)
                 .first()
                 .id,
         )

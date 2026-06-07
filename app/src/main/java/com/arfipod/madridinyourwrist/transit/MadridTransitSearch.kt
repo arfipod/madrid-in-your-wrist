@@ -83,11 +83,42 @@ object MadridTransitSearch {
         val terms = normalizedSearchText()
             .split(' ')
             .filter { term -> term.isNotBlank() }
+            .flatMap { term -> term.compactTransitTerms() }
         if (terms.size <= 1) return terms
 
         return terms
             .filterNot { term -> term in COMMON_SEARCH_STOP_WORDS }
             .ifEmpty { terms }
+    }
+
+    private fun String.compactTransitTerms(): List<String> {
+        if (none { char -> char.isDigit() } || none { char -> char in 'a'..'z' }) {
+            return listOf(this)
+        }
+
+        val parts = Regex("[a-z]+|\\d+")
+            .findAll(this)
+            .map { match -> match.value }
+            .toList()
+        if (parts.size <= 1) return listOf(this)
+        if (parts.first().first() in 'a'..'z' && parts.first().length > 1) {
+            return listOf(this)
+        }
+
+        val terms = mutableListOf<String>()
+        var index = 0
+        while (index < parts.size) {
+            val current = parts[index]
+            val next = parts.getOrNull(index + 1)
+            if (current.length == 1 && current[0] in 'a'..'z' && next?.all { char -> char.isDigit() } == true) {
+                terms += current + next
+                index += 2
+            } else {
+                terms += current
+                index += 1
+            }
+        }
+        return terms
     }
 
     private fun indexFor(options: List<MadridTransitOption>): SearchIndex {
@@ -105,6 +136,7 @@ object MadridTransitSearch {
         return SearchDocument(
             option = this,
             fieldsBlob = normalizedFieldBlob(searchFields()),
+            compactFieldsBlob = compactFieldBlob(searchFields()),
             primaryFieldsBlob = normalizedFieldBlob(primarySearchFields()),
             phraseField = label.normalizedSearchText(),
         )
@@ -113,7 +145,8 @@ object MadridTransitSearch {
     private fun SearchDocument.searchScore(terms: List<SearchTerm>, phrase: String): Int {
         var termScore = 0
         terms.forEach { term ->
-            val fieldScore = fieldsBlob.bestBlobScore(term)
+            val fieldScore = fieldsBlob.bestBlobScore(term).takeIf { score -> score > 0 }
+                ?: compactFieldsBlob.bestCompactScore(term)
             if (fieldScore == 0) return 0
             termScore += fieldScore
         }
@@ -139,6 +172,12 @@ object MadridTransitSearch {
         else -> 0
     }
 
+    private fun String.bestCompactScore(term: SearchTerm): Int = when {
+        term.value.length < 5 -> 0
+        term.value in this -> 12
+        else -> 0
+    }
+
     private fun MadridTransitOption.primarySearchFields(): List<String> {
         return listOfNotNull(
             label,
@@ -149,6 +188,9 @@ object MadridTransitSearch {
             busTarget?.stopId,
             busTarget?.lineId,
             busTarget?.destination,
+            trainTarget?.stopId,
+            trainTarget?.lineId,
+            trainTarget?.destination,
         )
     }
 
@@ -178,8 +220,23 @@ object MadridTransitSearch {
                 target.lineId?.let { lineId -> "Línea $lineId" },
             )
         }.orEmpty()
+        val trainFields = trainTarget?.let { target ->
+            listOfNotNull(
+                target.label,
+                target.stopId,
+                target.lineId,
+                target.destination,
+                "Cercanías",
+                "Cercanias",
+                "Tren",
+                "Estacion ${target.stopName}",
+                "Estación ${target.stopName}",
+                target.lineId?.let { lineId -> "Linea $lineId" },
+                target.lineId?.let { lineId -> "Línea $lineId" },
+            )
+        }.orEmpty()
 
-        return listOf(label, detail, kind.label, source.label) + searchAliases + metroFields + busFields
+        return listOf(label, detail, kind.label, source.label) + searchAliases + metroFields + busFields + trainFields
     }
 
     private fun normalizedFieldBlob(fields: List<String>): String {
@@ -198,6 +255,14 @@ object MadridTransitSearch {
                 append(field)
             }
             append(FIELD_SEPARATOR)
+        }
+    }
+
+    private fun compactFieldBlob(fields: List<String>): String {
+        return buildString {
+            fields.forEach { field ->
+                append(field.normalizedSearchText().replace(" ", ""))
+            }
         }
     }
 
@@ -227,6 +292,7 @@ object MadridTransitSearch {
     private data class SearchDocument(
         val option: MadridTransitOption,
         val fieldsBlob: String,
+        val compactFieldsBlob: String,
         val primaryFieldsBlob: String,
         val phraseField: String,
     )

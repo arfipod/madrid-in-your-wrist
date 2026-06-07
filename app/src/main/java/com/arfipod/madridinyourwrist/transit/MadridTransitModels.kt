@@ -9,6 +9,7 @@ import kotlin.math.sqrt
 enum class MadridTransitKind(val label: String) {
     METRO("Metro"),
     BUS("Bus"),
+    TRAIN("Tren"),
 }
 
 enum class MadridTransitSource(
@@ -24,6 +25,7 @@ enum class MadridTransitSource(
         fun defaultFor(kind: MadridTransitKind): MadridTransitSource = when (kind) {
             MadridTransitKind.METRO -> METRO_NAP
             MadridTransitKind.BUS -> EMT_OPENAPI
+            MadridTransitKind.TRAIN -> CRTM_STATIC_GTFS
         }
     }
 }
@@ -46,6 +48,79 @@ enum class MadridTransitPlace(
     }
 }
 
+enum class MadridTransitProfileIcon(
+    val id: String,
+    val symbol: String,
+    val label: String,
+) {
+    BRIEFCASE(id = "briefcase", symbol = "💼", label = "Cartera"),
+    HEART(id = "heart", symbol = "♥", label = "Corazón"),
+    HOME(id = "home", symbol = "⌂", label = "Casa"),
+    STAR(id = "star", symbol = "★", label = "Favorito"),
+    PIN(id = "pin", symbol = "⌖", label = "Punto"),
+    ;
+
+    companion object {
+        val selectable: List<MadridTransitProfileIcon> = entries.toList()
+
+        fun fromId(id: String?): MadridTransitProfileIcon? =
+            entries.firstOrNull { icon -> icon.id == id }
+    }
+}
+
+data class MadridTransitPlaceProfile(
+    val place: MadridTransitPlace,
+    val customName: String? = null,
+    val icon: MadridTransitProfileIcon? = null,
+) {
+    val label: String
+        get() = MadridTransitProfileCustomization.normalizeName(customName) ?: place.label
+
+    val shortLabel: String
+        get() = icon?.symbol ?: place.shortLabel
+
+    fun withCustomization(
+        name: String?,
+        nextIcon: MadridTransitProfileIcon?,
+    ): MadridTransitPlaceProfile = copy(
+        customName = MadridTransitProfileCustomization.normalizeName(name),
+        icon = nextIcon,
+    )
+}
+
+object MadridTransitProfileCustomization {
+    const val NAME_MAX_CHARS = 16
+
+    fun defaultProfiles(): Map<MadridTransitPlace, MadridTransitPlaceProfile> {
+        return MadridTransitPlace.selectable.associateWith { place ->
+            MadridTransitPlaceProfile(place = place)
+        }
+    }
+
+    fun profileFor(
+        profiles: Map<MadridTransitPlace, MadridTransitPlaceProfile>,
+        place: MadridTransitPlace,
+    ): MadridTransitPlaceProfile {
+        return profiles[place] ?: MadridTransitPlaceProfile(place = place)
+    }
+
+    fun withProfile(
+        profiles: Map<MadridTransitPlace, MadridTransitPlaceProfile>,
+        profile: MadridTransitPlaceProfile,
+    ): Map<MadridTransitPlace, MadridTransitPlaceProfile> {
+        return defaultProfiles() + profiles + (profile.place to profile)
+    }
+
+    fun normalizeName(rawName: String?): String? {
+        return rawName
+            ?.replace('\n', ' ')
+            ?.replace('\r', ' ')
+            ?.trim()
+            ?.take(NAME_MAX_CHARS)
+            ?.takeIf { name -> name.isNotBlank() }
+    }
+}
+
 data class MadridGeoPoint(
     val latitude: Double,
     val longitude: Double,
@@ -61,13 +136,23 @@ data class MadridTransitOption(
     val searchAliases: List<String> = emptyList(),
     val metroTarget: MetroScheduleTarget? = null,
     val busTarget: EmtMadridStopTarget? = null,
+    val trainTarget: MadridTrainTarget? = null,
 ) {
     init {
-        require((metroTarget == null) != (busTarget == null)) {
+        val targetCount = listOfNotNull(metroTarget, busTarget, trainTarget).size
+        require(targetCount == 1) {
             "Transit option must point to exactly one transport target."
         }
     }
 }
+
+data class MadridTrainTarget(
+    val stopId: String,
+    val label: String,
+    val lineId: String,
+    val destination: String,
+    val stopName: String,
+)
 
 data class MadridTransitFavorite(
     val option: MadridTransitOption,
@@ -181,6 +266,10 @@ object MadridTransitCatalog {
         MadridGeneratedTransitCatalog.busOptions
     }
 
+    val trainOptions: List<MadridTransitOption> by lazy {
+        MadridGeneratedTransitCatalog.trainOptions
+    }
+
     val allOptions: List<MadridTransitOption> by lazy { MadridGeneratedTransitCatalog.options }
 
     val defaultFavorites: List<MadridTransitFavorite> by lazy {
@@ -255,6 +344,7 @@ object MadridTransitCatalog {
     private fun optionsForKind(kind: MadridTransitKind?): List<MadridTransitOption> = when (kind) {
         MadridTransitKind.METRO -> metroOptions
         MadridTransitKind.BUS -> busOptions
+        MadridTransitKind.TRAIN -> trainOptions
         null -> allOptions
     }
 

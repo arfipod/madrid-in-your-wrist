@@ -9,10 +9,12 @@ snapshot for the selected profile from `SharedPreferences`.
 With cached data:
 
 ```text
-Title:  Perfil 1 · Madrid
+Title:  Trabajo · Madrid
 Body:   E3 4m
 Footer: Daroca E3 · 08:15
 ```
+
+The title uses the selected profile's custom name when one is stored.
 
 Without cached data, it shows `Sin datos` and prompts the user to open the app
 and refresh. The Tile freshness interval is 15 minutes because the Tile only
